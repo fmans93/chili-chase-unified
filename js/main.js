@@ -2,23 +2,20 @@
 // CHILI CHASE // UNIFIED
 // main.js
 //
+// GOLD BUILD RESET
+//
+// Based on the startup behavior of the proven
+// Rodeo Ranger Soldier Build.
+//
 // TARGETS:
 //   PHONE
 //   META / XR GLASSES
 //
-// PHONE:
-//   START GAME -> immediate gameplay
-//
-// GLASSES:
-//   ENABLE HEAD CONTROL
-//        ↓
-//   gyro/head pointer
-//        ↓
-//   START GAME
-//        ↓
-//   ENTER AR
-//        ↓
-//   Meta pinch/hold controls
+// IMPORTANT:
+//   START GAME MUST ALWAYS START THE GAME.
+//   NO capability check blocks START.
+//   NO gyro request blocks START.
+//   NO XR check blocks START.
 // =========================================================
 
 import * as THREE from "three";
@@ -95,20 +92,28 @@ import {
 // =========================================================
 
 const GAME = {
+
   initialized: false,
+
   started: false,
-  loading: false,
+
   headEnabled: false,
 
-  clock: new THREE.Clock(),
+  clock:
+    new THREE.Clock(),
 
-  lastXRFrameTime: 0,
+  lastXRFrameTime:
+    0,
 
   playerHealth:
     CONFIG.PLAYER.MAX_HEALTH,
 
-  score: 0,
-  tokens: 0
+  score:
+    0,
+
+  tokens:
+    0
+
 };
 
 
@@ -167,10 +172,66 @@ const errorScreen =
 
 
 // =========================================================
+// START BUTTON
+//
+// IMPORTANT:
+//
+// Attach START immediately.
+//
+// This mirrors the known-good Soldier Build.
+// =========================================================
+
+startButton?.addEventListener(
+  "pointerdown",
+  startGame
+);
+
+startButton?.addEventListener(
+  "click",
+  startGame
+);
+
+
+// =========================================================
+// START FAILSAFE
+//
+// Proven Soldier Build used the same idea.
+//
+// If the browser somehow fails to deliver the button event,
+// don't leave the player trapped forever.
+// =========================================================
+
+window.setTimeout(
+  () => {
+
+    if (
+      GAME.initialized &&
+      !GAME.started
+    ) {
+
+      logConfig(
+        "START failsafe activated."
+      );
+
+      startGame();
+
+    }
+
+  },
+  3000
+);
+
+
+// =========================================================
 // BOOT
 // =========================================================
 
 boot();
+
+
+// =========================================================
+// BOOT
+// =========================================================
 
 async function boot() {
 
@@ -186,55 +247,6 @@ async function boot() {
     // -----------------------------------------------------
 
     createScene();
-
-
-    // -----------------------------------------------------
-    // IMPORTANT:
-    // ATTACH START BUTTON IMMEDIATELY
-    //
-    // The phone START button must not depend on:
-    // - XR detection
-    // - gyro detection
-    // - model loading
-    // -----------------------------------------------------
-
-    startButton?.addEventListener(
-      "pointerdown",
-      handleStartPress
-    );
-
-    startButton?.addEventListener(
-      "click",
-      handleStartPress
-    );
-
-
-    // -----------------------------------------------------
-    // CAPABILITIES
-    //
-    // NON-BLOCKING
-    // -----------------------------------------------------
-
-    detectCapabilities()
-
-      .then(() => {
-
-        updateStatusUI();
-
-        logConfig(
-          "Capability detection complete."
-        );
-
-      })
-
-      .catch((error) => {
-
-        warnConfig(
-          "Capability detection failed — continuing anyway:",
-          error
-        );
-
-      });
 
 
     // -----------------------------------------------------
@@ -272,7 +284,7 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // GLASSES HEAD START
+    // GLASSES HEAD BUTTON
     // -----------------------------------------------------
 
     enableHeadButton?.addEventListener(
@@ -282,14 +294,25 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // ALLOW START
+    // GAME IS NOW ALLOWED TO START
     //
-    // Do this BEFORE waiting for Chili model.
+    // Do this BEFORE:
+    // - capability detection
+    // - model loading
+    //
+    // Those systems cannot trap START anymore.
     // -----------------------------------------------------
 
-    GAME.initialized = true;
+    GAME.initialized =
+      true;
+
 
     hideLoading();
+
+
+    // -----------------------------------------------------
+    // START RENDER LOOP NOW
+    // -----------------------------------------------------
 
     renderer.setAnimationLoop(
       gameLoop
@@ -297,45 +320,98 @@ async function boot() {
 
 
     // -----------------------------------------------------
+    // CAPABILITY DETECTION
+    //
+    // FIRE AND FORGET.
+    // DO NOT await.
+    // -----------------------------------------------------
+
+    detectCapabilities()
+
+      .then(
+        () => {
+
+          try {
+
+            updateStatusUI();
+
+          }
+
+          catch (error) {
+
+            warnConfig(
+              "Status UI update failed:",
+              error
+            );
+
+          }
+
+
+          logConfig(
+            "Capability detection complete."
+          );
+
+        }
+      )
+
+      .catch(
+        error => {
+
+          warnConfig(
+            "Capability detection failed. Continuing:",
+            error
+          );
+
+        }
+      );
+
+
+    // -----------------------------------------------------
     // LOAD CHILI
     //
-    // Failure to load Chili should NOT trap the user
-    // on the start screen.
+    // This also must NOT control whether START works.
     // -----------------------------------------------------
 
-    try {
+    loadDeathChili()
 
-      await loadDeathChili();
+      .then(
+        () => {
 
-      logConfig(
-        "Death Chili loaded."
+          logConfig(
+            "Zombie Chili ready."
+          );
+
+        }
+      )
+
+      .catch(
+        error => {
+
+          warnConfig(
+            "Zombie Chili failed to load:",
+            error
+          );
+
+          showGameMessage(
+            "CHILI MODEL ERROR",
+            2200
+          );
+
+        }
       );
-
-    }
-
-    catch (error) {
-
-      warnConfig(
-        "Chili model failed to load. Game will continue:",
-        error
-      );
-
-    }
 
 
     // -----------------------------------------------------
-    // UI
+    // HUD
     // -----------------------------------------------------
 
     updatePlayerHUD();
 
     updateScoreHUD();
 
-    updateStatusUI();
-
 
     logConfig(
-      "CHILI CHASE unified V1 ready."
+      "CHILI CHASE GOLD startup ready."
     );
 
   }
@@ -347,7 +423,9 @@ async function boot() {
       error
     );
 
+
     hideLoading();
+
 
     showError(
       error?.message ||
@@ -360,42 +438,185 @@ async function boot() {
 
 
 // =========================================================
-// START BUTTON
+// START GAME
+//
+// THIS IS INTENTIONALLY SIMPLE.
+//
+// It follows the proven Soldier Build:
+//
+// started = true
+// hide start screen
+// start clock
+// play
+//
+// NO await.
+// NO gyro permission.
+// NO XR detection.
+// NO model loading.
 // =========================================================
 
-function handleStartPress(event) {
+function startGame(event) {
 
-  event?.preventDefault();
-
-  startGame();
-
-}
+  event?.preventDefault?.();
 
 
-// =========================================================
-// ENABLE GLASSES HEAD CONTROL
-// =========================================================
-
-async function enableHeadStartup() {
-
-  if (!GAME.initialized) {
+  if (
+    GAME.started
+  ) {
 
     return;
 
   }
 
 
-  if (isHeadControlEnabled()) {
+  if (
+    !GAME.initialized
+  ) {
+
+    logConfig(
+      "START pressed before initialization finished."
+    );
+
+    return;
+
+  }
+
+
+  // -------------------------------------------------------
+  // START
+  // -------------------------------------------------------
+
+  GAME.started =
+    true;
+
+
+  // -------------------------------------------------------
+  // REMOVE START SCREEN IMMEDIATELY
+  // -------------------------------------------------------
+
+  if (
+    startScreen
+  ) {
+
+    startScreen.style.display =
+      "none";
+
+  }
+
+
+  // -------------------------------------------------------
+  // SHOW HUD
+  // -------------------------------------------------------
+
+  hud?.classList.remove(
+    "hidden"
+  );
+
+
+  // -------------------------------------------------------
+  // DEFAULT DEVICE MODE
+  //
+  // Head control is NOT requested here.
+  // -------------------------------------------------------
+
+  if (
+    !XR_STATE.presenting
+  ) {
+
+    setDeviceMode(
+      GAME.headEnabled
+        ? "glasses"
+        : "phone"
+    );
+
+  }
+
+
+  // -------------------------------------------------------
+  // CLOCK
+  // -------------------------------------------------------
+
+  GAME.clock.start();
+
+  GAME.clock.getDelta();
+
+
+  // -------------------------------------------------------
+  // MESSAGE
+  // -------------------------------------------------------
+
+  showGameMessage(
+    "CHILI HUNT ONLINE"
+  );
+
+
+  try {
+
+    updateStatusUI();
+
+  }
+
+  catch (error) {
+
+    warnConfig(
+      "Status UI update failed:",
+      error
+    );
+
+  }
+
+
+  logConfig(
+    "GAME STARTED.",
+    {
+      xr:
+        XR_STATE.presenting,
+
+      head:
+        GAME.headEnabled
+    }
+  );
+
+}
+
+
+// =========================================================
+// ENABLE GLASSES HEAD CONTROL
+//
+// Separate path.
+//
+// Phone START never enters this function.
+// =========================================================
+
+async function enableHeadStartup() {
+
+  if (
+    !GAME.initialized
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    isHeadControlEnabled()
+  ) {
+
+    GAME.headEnabled =
+      true;
 
     recenterHead();
-
-    GAME.headEnabled = true;
 
     setDeviceMode(
       "glasses"
     );
 
-    updateStatusUI();
+
+    setHeadStartupMessage(
+      "HEAD CONTROL ONLINE"
+    );
+
 
     startGame();
 
@@ -404,7 +625,9 @@ async function enableHeadStartup() {
   }
 
 
-  if (enableHeadButton) {
+  if (
+    enableHeadButton
+  ) {
 
     enableHeadButton.disabled =
       true;
@@ -426,9 +649,13 @@ async function enableHeadStartup() {
       await enableGlassesHead();
 
 
-    if (!enabled) {
+    if (
+      !enabled
+    ) {
 
-      if (enableHeadButton) {
+      if (
+        enableHeadButton
+      ) {
 
         enableHeadButton.disabled =
           false;
@@ -438,9 +665,11 @@ async function enableHeadStartup() {
 
       }
 
+
       setHeadStartupMessage(
         "HEAD CONTROL FAILED — TRY AGAIN"
       );
+
 
       return;
 
@@ -450,14 +679,15 @@ async function enableHeadStartup() {
     GAME.headEnabled =
       true;
 
+
     setDeviceMode(
       "glasses"
     );
 
-    updateStatusUI();
 
-
-    if (enableHeadButton) {
+    if (
+      enableHeadButton
+    ) {
 
       enableHeadButton.textContent =
         "HEAD CONTROL ONLINE";
@@ -471,10 +701,11 @@ async function enableHeadStartup() {
 
 
     logConfig(
-      "Glasses head control enabled."
+      "Glasses head control online."
     );
 
 
+    // Same game-start path.
     startGame();
 
   }
@@ -482,12 +713,14 @@ async function enableHeadStartup() {
   catch (error) {
 
     warnConfig(
-      "Could not enable glasses head control:",
+      "Head control error:",
       error
     );
 
 
-    if (enableHeadButton) {
+    if (
+      enableHeadButton
+    ) {
 
       enableHeadButton.disabled =
         false;
@@ -503,121 +736,6 @@ async function enableHeadStartup() {
     );
 
   }
-
-}
-
-
-// =========================================================
-// START GAME
-//
-// CRITICAL CHANGE:
-//
-// PHONE START DOES NOT REQUEST GYRO/HEAD PERMISSION.
-//
-// Glasses head control is ONLY enabled through
-// enableHeadStartup().
-//
-// This prevents phones with DeviceOrientation support from
-// getting trapped on the START screen.
-// =========================================================
-
-function startGame() {
-
-  if (
-    !GAME.initialized ||
-    GAME.started
-  ) {
-
-    return;
-
-  }
-
-
-  // -------------------------------------------------------
-  // MARK STARTED
-  // -------------------------------------------------------
-
-  GAME.started =
-    true;
-
-
-  // -------------------------------------------------------
-  // HIDE START IMMEDIATELY
-  //
-  // Nothing asynchronous happens before this.
-  // -------------------------------------------------------
-
-  startScreen?.classList.add(
-    "hidden"
-  );
-
-
-  // -------------------------------------------------------
-  // SHOW HUD
-  // -------------------------------------------------------
-
-  hud?.classList.remove(
-    "hidden"
-  );
-
-
-  // -------------------------------------------------------
-  // DEVICE MODE
-  // -------------------------------------------------------
-
-  if (!XR_STATE.presenting) {
-
-    if (GAME.headEnabled) {
-
-      setDeviceMode(
-        "glasses"
-      );
-
-    }
-
-    else {
-
-      setDeviceMode(
-        "phone"
-      );
-
-    }
-
-  }
-
-
-  // -------------------------------------------------------
-  // CLOCK
-  // -------------------------------------------------------
-
-  GAME.clock.start();
-
-  GAME.clock.getDelta();
-
-
-  // -------------------------------------------------------
-  // UI
-  // -------------------------------------------------------
-
-  showGameMessage(
-    "FIND THE CHILI"
-  );
-
-  updateStatusUI();
-
-
-  logConfig(
-    "Game started.",
-    {
-      headControl:
-        isHeadControlEnabled(),
-
-      mode:
-        GAME.headEnabled
-          ? "glasses"
-          : "phone"
-    }
-  );
 
 }
 
@@ -667,11 +785,14 @@ function gameLoop(
     else {
 
       deltaTime =
+
         (
           time -
           GAME.lastXRFrameTime
         )
+
         /
+
         1000;
 
     }
@@ -692,6 +813,7 @@ function gameLoop(
     GAME.lastXRFrameTime =
       0;
 
+
     deltaTime =
       GAME.clock.getDelta();
 
@@ -707,10 +829,10 @@ function gameLoop(
 
 
   // -------------------------------------------------------
-  // HEAD CONTROL
+  // GLASSES HEAD
   //
-  // This still updates before game start so the glasses
-  // head pointer can operate the startup UI.
+  // Keep running before game starts so glasses UI can use
+  // head control.
   // -------------------------------------------------------
 
   updateGlassesHead(
@@ -719,10 +841,12 @@ function gameLoop(
 
 
   // -------------------------------------------------------
-  // GAME UPDATE
+  // GAME
   // -------------------------------------------------------
 
-  if (GAME.started) {
+  if (
+    GAME.started
+  ) {
 
     updateGame(
       deltaTime,
@@ -739,6 +863,10 @@ function gameLoop(
 
   }
 
+
+  // -------------------------------------------------------
+  // RENDER
+  // -------------------------------------------------------
 
   renderer.render(
     scene,
@@ -767,7 +895,10 @@ function updateGame(
 
 
   // -------------------------------------------------------
-  // XR HANDS
+  // XR HAND INPUT
+  //
+  // This module contains the proven short-pinch / hold
+  // architecture transplanted from Soldier Build.
   // -------------------------------------------------------
 
   if (
@@ -785,10 +916,6 @@ function updateGame(
 
   // -------------------------------------------------------
   // PHONE MOVEMENT
-  //
-  // Keep normal phone/browser movement here.
-  // Phone-in-XR movement will be handled after the basic
-  // phone startup is confirmed working.
   // -------------------------------------------------------
 
   if (
@@ -803,7 +930,7 @@ function updateGame(
 
 
   // -------------------------------------------------------
-  // NON-XR LOOK
+  // PHONE LOOK
   // -------------------------------------------------------
 
   updateLookInput();
@@ -865,7 +992,7 @@ function updatePhoneMovement(
 
 
 // =========================================================
-// NON-XR LOOK
+// LOOK INPUT
 // =========================================================
 
 function updateLookInput() {
@@ -907,17 +1034,33 @@ function updateLookInput() {
 
 function setupCommands() {
 
+  // -------------------------------------------------------
+  // LASSO
+  //
+  // Phone button + Meta short pinch eventually share this.
+  // -------------------------------------------------------
+
   onCommand(
     COMMANDS.LASSO,
     handleLassoCommand
   );
 
 
+  // -------------------------------------------------------
+  // RECENTER
+  // -------------------------------------------------------
+
   onCommand(
     COMMANDS.RECENTER,
     () => {
 
       recenterHead();
+
+
+      showGameMessage(
+        "RECENTERED"
+      );
+
 
       logConfig(
         "RECENTER command received."
@@ -930,10 +1073,17 @@ function setupCommands() {
 
 
 // =========================================================
-// TEMPORARY LASSO FEEDBACK
+// TEMP LASSO TEST
+//
+// We are NOT building the final rope yet.
+//
+// First goal:
+// prove START + phone + glasses are stable again.
 // =========================================================
 
-function handleLassoCommand(event) {
+function handleLassoCommand(
+  event
+) {
 
   logConfig(
     "LASSO COMMAND:",
@@ -946,7 +1096,9 @@ function handleLassoCommand(event) {
   );
 
 
-  if (!CHILI.loaded) {
+  if (
+    !CHILI.loaded
+  ) {
 
     return;
 
@@ -998,13 +1150,24 @@ function setupXRLifecycle() {
       GAME.lastXRFrameTime =
         0;
 
+
+      // ---------------------------------------------------
+      // XR SESSION MEANS GAME IS ACTIVE
+      // ---------------------------------------------------
+
       GAME.started =
         true;
 
 
-      startScreen?.classList.add(
-        "hidden"
-      );
+      if (
+        startScreen
+      ) {
+
+        startScreen.style.display =
+          "none";
+
+      }
+
 
       hud?.classList.remove(
         "hidden"
@@ -1015,11 +1178,26 @@ function setupXRLifecycle() {
         "xr"
       );
 
-      updateStatusUI();
+
+      try {
+
+        updateStatusUI();
+
+      }
+
+      catch (error) {
+
+        warnConfig(
+          "XR status update failed:",
+          error
+        );
+
+      }
 
 
-      // Wait one normal frame so XR has a chance to provide
-      // its camera pose before placing Chili.
+      // ---------------------------------------------------
+      // POSITION CHILI
+      // ---------------------------------------------------
 
       requestAnimationFrame(
         () => {
@@ -1033,7 +1211,7 @@ function setupXRLifecycle() {
 
 
       showGameMessage(
-        "AR READY"
+        "AR ACTIVE"
       );
 
 
@@ -1051,6 +1229,7 @@ function setupXRLifecycle() {
       GAME.lastXRFrameTime =
         0;
 
+
       resetPhoneInput();
 
 
@@ -1064,16 +1243,6 @@ function setupXRLifecycle() {
 
       }
 
-      else if (
-        CAPABILITIES.mobileLike
-      ) {
-
-        setDeviceMode(
-          "phone"
-        );
-
-      }
-
       else {
 
         setDeviceMode(
@@ -1083,7 +1252,20 @@ function setupXRLifecycle() {
       }
 
 
-      updateStatusUI();
+      try {
+
+        updateStatusUI();
+
+      }
+
+      catch (error) {
+
+        warnConfig(
+          "XR status update failed:",
+          error
+        );
+
+      }
 
 
       showGameMessage(
@@ -1097,7 +1279,7 @@ function setupXRLifecycle() {
 
 
 // =========================================================
-// PLACE CHILI IN FRONT OF CURRENT PLAYER
+// PLACE CHILI IN FRONT OF PLAYER
 // =========================================================
 
 function placeChiliInFrontOfPlayer(
@@ -1171,7 +1353,7 @@ function placeChiliInFrontOfPlayer(
 
 
   logConfig(
-    "Chili placed in front of player:",
+    "Chili placed:",
     {
       x:
         Number(
@@ -1345,10 +1527,6 @@ function showLoading(
   message
 ) {
 
-  GAME.loading =
-    true;
-
-
   loadingScreen?.classList.remove(
     "hidden"
   );
@@ -1384,10 +1562,6 @@ function showLoading(
 // =========================================================
 
 function hideLoading() {
-
-  GAME.loading =
-    false;
-
 
   loadingScreen?.classList.add(
     "hidden"
@@ -1455,7 +1629,9 @@ function showGameMessage(
     );
 
 
-  if (!element) {
+  if (
+    !element
+  ) {
 
     return;
 
