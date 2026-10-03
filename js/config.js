@@ -1,302 +1,378 @@
-// =========================================================
-// CHILI CHASE // UNIFIED
-// config.js
+// ============================================================
+// CHILI CHASE UNIFIED
+// js/core/capabilities.js
 //
-// Central configuration for the entire game.
-// Change gameplay tuning here instead of scattering
-// numbers throughout the project.
-// =========================================================
-
-export const CONFIG = {
-
-  // =======================================================
-  // PROJECT
-  // =======================================================
-
-  VERSION: "UNIFIED-V1",
-
-  DEBUG: true,
-
-
-  // =======================================================
-  // ASSETS
-  // =======================================================
-
-  ASSETS: {
-
-    // Our first V1 enemy.
-    DEATH_CHILI:
-      "./assets/chilizombie.glb"
-
-  },
-
-
-  // =======================================================
-  // PLAYER
-  // =======================================================
-
-  PLAYER: {
-
-    MAX_HEALTH: 100,
-
-    // Normal virtual movement.
-    MOVE_SPEED: 4.6,
-
-    // Sprint movement.
-    SPRINT_SPEED: 7.0,
-
-    // Desktop mouse sensitivity.
-    MOUSE_SENSITIVITY: 0.0022
-
-  },
-
-
-  // =======================================================
-  // CHILI
-  // =======================================================
-
-  CHILI: {
-
-    /*
-      IMPORTANT:
-
-      We are NOT going to trust whatever scale happens
-      to be stored inside the GLB.
-
-      chili.js will measure the model and normalize it
-      to this real-world height.
-
-      This is based on the model-normalization approach
-      that behaved better in the older builds.
-    */
-
-    TARGET_HEIGHT: 1.45,
-
-    /*
-      Initial desktop position.
-
-      X = left/right
-      Y = floor
-      Z = forward/back
-
-      Negative Z is in front of the default camera.
-    */
-
-    START_POSITION: {
-      x: 0,
-      y: 0,
-      z: -4.5
-    },
-
-    WALK_SPEED: 1.7,
-
-    RUN_SPEED: 2.7,
-
-    ATTACK_RANGE: 1.55,
-
-    ATTACK_DAMAGE: 15,
-
-    ATTACK_COOLDOWN: 1700
-
-  },
-
-
-  // =======================================================
-  // CAMERA
-  // =======================================================
-
-  CAMERA: {
-
-    FOV: 70,
-
-    NEAR: 0.01,
-
-    FAR: 100,
-
-    /*
-      Desktop eye height.
-
-      XR ignores this because the headset/device
-      controls the physical camera pose.
-    */
-
-    DESKTOP_HEIGHT: 1.65
-
-  },
-
-
-  // =======================================================
-  // WORLD
-  // =======================================================
-
-  WORLD: {
-
-    /*
-      Temporary desktop floor.
-
-      In immersive AR, the real world becomes the
-      visible environment instead.
-    */
-
-    FLOOR_SIZE: 30,
-
-    SHOW_TEST_GRID: true
-
-  },
-
-
-  // =======================================================
-  // PHONE INPUT
-  // =======================================================
-
-  PHONE: {
-
-    JOYSTICK_RADIUS: 42,
-
-    LOOK_SENSITIVITY: 0.004,
-
-    SPRINT_MULTIPLIER: 1.5
-
-  },
-
-
-  // =======================================================
-  // GLASSES / HEAD GYRO
-  // =======================================================
-
-  HEAD: {
-
-    /*
-      These values come from the behavior that worked
-      well in our Ray-Ban gyro test.
-    */
-
-    SENSITIVITY_X: 7,
-
-    /*
-      We are keeping this configurable because the
-      vertical axis behaved differently during testing.
-
-      glasses-head.js will be the only module responsible
-      for translating the sensor orientation into our
-      normalized game input.
-    */
-
-    SENSITIVITY_Y: -7,
-
-    SMOOTHING: 0.15,
-
-    MAX_SCREEN_X: 0.44,
-
-    MAX_SCREEN_Y: 0.40,
-
-    DWELL_TIME: 1000
-
-  },
-
-
-  // =======================================================
-  // XR HAND INPUT
-  // =======================================================
-
-  HANDS: {
-
-    /*
-      Proven interaction idea:
-
-      Short pinch/select:
-          action
-
-      Hold:
-          movement/control
-    */
-
-    HOLD_THRESHOLD: 210,
-
-    FORWARD_SPEED: 5.0,
-
-    BACKWARD_SPEED: 3.6,
-
-    TURN_SPEED: 2.15,
-
-    MOVEMENT_BOOST: 1.35,
-
-    TURN_DEADZONE: 0.035,
-
-    MOVE_DEADZONE: 0.025
-
-  },
-
-
-  // =======================================================
-  // LASSO
-  // =======================================================
-
-  /*
-    V1 only exposes the action.
-
-    The full physical rope/wrangling system comes after
-    our AR + phone + glasses baseline is proven.
-  */
-
-  LASSO: {
-
-    RANGE: 9,
-
-    COOLDOWN: 650
-
-  },
-
-
-  // =======================================================
-  // XR / AR
-  // =======================================================
-
-  XR: {
-
-    REQUIRED_FEATURES: [
-      "local-floor"
-    ],
-
-    OPTIONAL_FEATURES: [
-      "dom-overlay",
-      "hand-tracking",
-      "hit-test"
-    ]
-
-  }
-
+// Device / browser capability detection.
+//
+// IMPORTANT:
+// - Phone is a primary gameplay target.
+// - Meta / XR glasses are a primary gameplay target.
+// - Laptop is development/debug only.
+// - Detection must NEVER block the START button.
+// ============================================================
+
+export const CAPABILITIES = {
+  touch: false,
+  coarsePointer: false,
+  mobileLike: false,
+
+  orientation: false,
+  orientationPermissionRequired: false,
+
+  webXR: false,
+  immersiveAR: false,
+
+  handTracking: false,
+  hitTest: false,
+  domOverlay: false,
+
+  mode: "unknown",
+  userAgent: "",
+
+  initialized: false
 };
 
 
-// =========================================================
-// DEVELOPMENT HELPERS
-// =========================================================
+// ------------------------------------------------------------
+// Detect device/browser capabilities
+// ------------------------------------------------------------
 
-export function logConfig(...args) {
+export async function detectCapabilities() {
+  console.log("[CHILI] Detecting capabilities...");
 
-  if (!CONFIG.DEBUG) {
-    return;
+  CAPABILITIES.userAgent = navigator.userAgent || "";
+
+  // ----------------------------------------------------------
+  // TOUCH
+  // ----------------------------------------------------------
+
+  CAPABILITIES.touch =
+    ("ontouchstart" in window) ||
+    (navigator.maxTouchPoints > 0);
+
+
+  // ----------------------------------------------------------
+  // POINTER TYPE
+  // ----------------------------------------------------------
+
+  try {
+    CAPABILITIES.coarsePointer =
+      window.matchMedia("(pointer: coarse)").matches;
+  } catch (error) {
+    CAPABILITIES.coarsePointer = false;
   }
 
-  console.log(
-    "%c[CHILI CHASE]",
-    "color:#00ff88;font-weight:bold;",
-    ...args
-  );
 
+  // ----------------------------------------------------------
+  // MOBILE-LIKE DEVICE
+  //
+  // Do NOT rely only on user-agent strings.
+  // ----------------------------------------------------------
+
+  CAPABILITIES.mobileLike =
+    CAPABILITIES.touch ||
+    CAPABILITIES.coarsePointer ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(
+      CAPABILITIES.userAgent
+    );
+
+
+  // ----------------------------------------------------------
+  // DEVICE ORIENTATION / GYRO
+  // ----------------------------------------------------------
+
+  CAPABILITIES.orientation =
+    ("DeviceOrientationEvent" in window);
+
+  CAPABILITIES.orientationPermissionRequired =
+    CAPABILITIES.orientation &&
+    typeof DeviceOrientationEvent.requestPermission === "function";
+
+
+  // ----------------------------------------------------------
+  // WEBXR
+  // ----------------------------------------------------------
+
+  CAPABILITIES.webXR =
+    !!navigator.xr &&
+    typeof navigator.xr.isSessionSupported === "function";
+
+
+  // ----------------------------------------------------------
+  // IMMERSIVE AR
+  //
+  // This check can fail or take time on some browsers.
+  // It must NEVER prevent the game from starting.
+  // ----------------------------------------------------------
+
+  CAPABILITIES.immersiveAR = false;
+
+  if (CAPABILITIES.webXR) {
+    try {
+      CAPABILITIES.immersiveAR =
+        await navigator.xr.isSessionSupported("immersive-ar");
+    } catch (error) {
+      console.warn(
+        "[CHILI] immersive-ar capability check failed:",
+        error
+      );
+
+      CAPABILITIES.immersiveAR = false;
+    }
+  }
+
+
+  // ----------------------------------------------------------
+  // XR OPTIONAL FEATURES
+  //
+  // These cannot always be confirmed until an XR session
+  // actually begins. These values mean the browser/device
+  // may support them.
+  // ----------------------------------------------------------
+
+  CAPABILITIES.handTracking =
+    CAPABILITIES.webXR;
+
+  CAPABILITIES.hitTest =
+    CAPABILITIES.webXR;
+
+  CAPABILITIES.domOverlay =
+    CAPABILITIES.webXR;
+
+
+  // ----------------------------------------------------------
+  // INITIAL DEVICE MODE
+  //
+  // "phone" means touch/mobile browser.
+  // "desktop" is only our development/debug fallback.
+  // XR can later change this mode when a session starts.
+  // ----------------------------------------------------------
+
+  if (CAPABILITIES.mobileLike) {
+    CAPABILITIES.mode = "phone";
+  } else {
+    CAPABILITIES.mode = "desktop";
+  }
+
+  CAPABILITIES.initialized = true;
+
+
+  console.log("[CHILI] Capabilities detected:", {
+    touch: CAPABILITIES.touch,
+    coarsePointer: CAPABILITIES.coarsePointer,
+    mobileLike: CAPABILITIES.mobileLike,
+    orientation: CAPABILITIES.orientation,
+    orientationPermissionRequired:
+      CAPABILITIES.orientationPermissionRequired,
+    webXR: CAPABILITIES.webXR,
+    immersiveAR: CAPABILITIES.immersiveAR,
+    mode: CAPABILITIES.mode
+  });
+
+
+  // Update start-screen text immediately.
+  updateDeviceStatus();
+
+  return CAPABILITIES;
 }
 
 
-export function warnConfig(...args) {
+// ------------------------------------------------------------
+// Change current gameplay mode
+// ------------------------------------------------------------
 
-  if (!CONFIG.DEBUG) {
+export function setDeviceMode(mode) {
+  CAPABILITIES.mode = mode || "unknown";
+
+  document.body.classList.remove(
+    "phone",
+    "desktop",
+    "glasses",
+    "xr"
+  );
+
+  if (CAPABILITIES.mode) {
+    document.body.classList.add(CAPABILITIES.mode);
+  }
+
+  updateDeviceStatus();
+  updateDebugUI();
+
+  console.log(
+    "[CHILI] Device mode:",
+    CAPABILITIES.mode
+  );
+}
+
+
+// ------------------------------------------------------------
+// Device status shown on START screen
+// ------------------------------------------------------------
+
+export function updateDeviceStatus() {
+  const element =
+    document.getElementById("device-status");
+
+  if (!element) return;
+
+
+  // Detection still running
+  if (!CAPABILITIES.initialized) {
+    element.textContent = "DETECTING DEVICE...";
     return;
   }
 
-  console.warn(
-    "[CHILI CHASE]",
-    ...args
-  );
 
+  // Mobile / phone
+  if (CAPABILITIES.mobileLike) {
+    if (CAPABILITIES.immersiveAR) {
+      element.textContent =
+        "PHONE READY • AR AVAILABLE";
+    } else {
+      element.textContent =
+        "PHONE READY";
+    }
+
+    return;
+  }
+
+
+  // Desktop debug environment
+  if (CAPABILITIES.immersiveAR) {
+    element.textContent =
+      "XR DEVICE READY";
+  } else {
+    element.textContent =
+      "DEBUG MODE";
+  }
+}
+
+
+// ------------------------------------------------------------
+// Ask for gyro permission
+//
+// iOS requires this from a physical user interaction.
+// Android normally does not.
+// ------------------------------------------------------------
+
+export async function requestOrientationPermission() {
+  if (!CAPABILITIES.orientation) {
+    console.log(
+      "[CHILI] Device orientation unavailable."
+    );
+
+    return false;
+  }
+
+
+  // Browser does not require explicit permission.
+  if (!CAPABILITIES.orientationPermissionRequired) {
+    return true;
+  }
+
+
+  try {
+    const result =
+      await DeviceOrientationEvent.requestPermission();
+
+    const granted =
+      result === "granted";
+
+    console.log(
+      "[CHILI] Orientation permission:",
+      result
+    );
+
+    return granted;
+
+  } catch (error) {
+
+    console.warn(
+      "[CHILI] Orientation permission failed:",
+      error
+    );
+
+    return false;
+  }
+}
+
+
+// ------------------------------------------------------------
+// Debug HUD
+// ------------------------------------------------------------
+
+export function updateDebugUI() {
+  const modeElement =
+    document.getElementById("debug-mode");
+
+  const xrElement =
+    document.getElementById("debug-xr");
+
+  const headElement =
+    document.getElementById("debug-head");
+
+  const handElement =
+    document.getElementById("debug-hand");
+
+
+  if (modeElement) {
+    modeElement.textContent =
+      `MODE: ${String(
+        CAPABILITIES.mode
+      ).toUpperCase()}`;
+  }
+
+
+  if (xrElement) {
+    xrElement.textContent =
+      `XR: ${
+        CAPABILITIES.immersiveAR
+          ? "YES"
+          : "NO"
+      }`;
+  }
+
+
+  if (headElement) {
+    headElement.textContent =
+      `HEAD: ${
+        CAPABILITIES.orientation
+          ? "YES"
+          : "NO"
+      }`;
+  }
+
+
+  if (handElement) {
+    handElement.textContent =
+      `HAND: ${
+        CAPABILITIES.handTracking
+          ? "POSSIBLE"
+          : "NO"
+      }`;
+  }
+}
+
+
+// ------------------------------------------------------------
+// Helpers
+// ------------------------------------------------------------
+
+export function isPhoneLike() {
+  return CAPABILITIES.mobileLike;
+}
+
+
+export function isImmersiveARSupported() {
+  return CAPABILITIES.immersiveAR;
+}
+
+
+export function hasOrientationSupport() {
+  return CAPABILITIES.orientation;
+}
+
+
+export function getDeviceMode() {
+  return CAPABILITIES.mode;
 }
