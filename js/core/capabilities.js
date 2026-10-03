@@ -1,844 +1,407 @@
-// =========================================================
-// CHILI CHASE // UNIFIED
-// core/capabilities.js
-//
-// Detects device/browser capabilities.
-//
-// IMPORTANT:
-// We do not build separate games for:
-// - Desktop
-// - Phone
-// - Glasses / XR
-//
-// We detect available capabilities and enable the
-// appropriate input/output systems.
-// =========================================================
-
-import {
-  logConfig,
-  warnConfig
-} from "../config.js";
-
-
-// =========================================================
-// CAPABILITY STATE
-// =========================================================
+// js/core/capabilities.js
+// CHILI CHASE UNIFIED
+// Device/capability detection must NEVER block game startup.
 
 export const CAPABILITIES = {
+    touch: false,
+    coarsePointer: false,
+    mobileLike: false,
 
-  // Basic device/input
-  touch: false,
-  coarsePointer: false,
-  mobileLike: false,
+    orientation: false,
+    orientationPermissionRequired: false,
 
-  // Motion / gyro
-  orientation: false,
-  orientationPermissionRequired: false,
+    webXR: false,
+    immersiveAR: false,
 
-  // XR
-  webXR: false,
-  immersiveAR: false,
+    handTracking: false,
+    hitTest: false,
+    domOverlay: false,
 
-  // These are potential XR capabilities.
-  // Actual support is confirmed after entering a session.
-  handTracking: false,
-  hitTest: false,
-  domOverlay: false,
+    mode: "unknown",
+    userAgent: navigator.userAgent || "",
 
-  // Current operating mode
-  mode: "desktop",
-
-  // Useful browser information
-  userAgent: "",
-
-  initialized: false
-
+    initialized: false
 };
 
 
-// =========================================================
-// INITIAL DETECTION
-// =========================================================
+// ---------------------------------------------------------
+// SAFE TIMEOUT
+// ---------------------------------------------------------
+
+function withTimeout(promise, milliseconds, fallback = false) {
+
+    return Promise.race([
+        promise,
+
+        new Promise((resolve) => {
+            setTimeout(() => resolve(fallback), milliseconds);
+        })
+    ]);
+}
+
+
+// ---------------------------------------------------------
+// DEVICE DETECTION
+// ---------------------------------------------------------
 
 export async function detectCapabilities() {
 
-  logConfig(
-    "Detecting device capabilities..."
-  );
+    console.log("[CHILI] Detecting device capabilities...");
 
+    // -----------------------------------------------------
+    // BASIC DETECTION
+    // -----------------------------------------------------
 
-  // -------------------------------------------------------
-  // USER AGENT
-  // -------------------------------------------------------
-
-  CAPABILITIES.userAgent =
-    navigator.userAgent || "";
-
-
-  // -------------------------------------------------------
-  // TOUCH
-  // -------------------------------------------------------
-
-  CAPABILITIES.touch =
-
-    (
-      "ontouchstart" in window
-    )
-
-    ||
-
-    (
-      navigator.maxTouchPoints > 0
-    );
-
-
-  // -------------------------------------------------------
-  // COARSE POINTER
-  // -------------------------------------------------------
-
-  try {
+    CAPABILITIES.touch =
+        ("ontouchstart" in window) ||
+        navigator.maxTouchPoints > 0;
 
     CAPABILITIES.coarsePointer =
+        window.matchMedia?.("(pointer: coarse)")?.matches || false;
 
-      window.matchMedia(
-        "(pointer: coarse)"
-      ).matches;
-
-  }
-
-  catch {
-
-    CAPABILITIES.coarsePointer =
-      false;
-
-  }
-
-
-  // -------------------------------------------------------
-  // MOBILE-LIKE DEVICE
-  //
-  // We intentionally do NOT rely only on userAgent.
-  // Touch + coarse pointer is usually more useful for
-  // deciding whether to display phone controls.
-  // -------------------------------------------------------
-
-  CAPABILITIES.mobileLike =
-
-    CAPABILITIES.touch
-
-    &&
-
-    CAPABILITIES.coarsePointer;
-
-
-  // -------------------------------------------------------
-  // DEVICE ORIENTATION / GYRO
-  // -------------------------------------------------------
-
-  CAPABILITIES.orientation =
-
-    "DeviceOrientationEvent" in window;
-
-
-  /*
-    iPhone/iPad Safari requires a physical user gesture
-    before motion/orientation permission can be requested.
-
-    Other browsers may expose DeviceOrientationEvent
-    without requestPermission().
-  */
-
-  CAPABILITIES.orientationPermissionRequired =
-
-    CAPABILITIES.orientation
-
-    &&
-
-    typeof DeviceOrientationEvent.requestPermission
-      === "function";
-
-
-  // -------------------------------------------------------
-  // WEBXR
-  // -------------------------------------------------------
-
-  CAPABILITIES.webXR =
-
-    "xr" in navigator
-
-    &&
-
-    navigator.xr != null;
-
-
-  // -------------------------------------------------------
-  // IMMERSIVE AR
-  // -------------------------------------------------------
-
-  CAPABILITIES.immersiveAR =
-    false;
-
-
-  if (CAPABILITIES.webXR) {
-
-    try {
-
-      CAPABILITIES.immersiveAR =
-
-        await navigator.xr.isSessionSupported(
-          "immersive-ar"
+    const mobileUA =
+        /Android|iPhone|iPad|iPod|Mobile/i.test(
+            navigator.userAgent || ""
         );
 
+    CAPABILITIES.mobileLike =
+        CAPABILITIES.touch ||
+        CAPABILITIES.coarsePointer ||
+        mobileUA;
+
+
+    // -----------------------------------------------------
+    // ORIENTATION / GYRO
+    // -----------------------------------------------------
+
+    CAPABILITIES.orientation =
+        "DeviceOrientationEvent" in window;
+
+    CAPABILITIES.orientationPermissionRequired =
+        typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function";
+
+
+    // -----------------------------------------------------
+    // WEBXR
+    // -----------------------------------------------------
+
+    CAPABILITIES.webXR =
+        !!navigator.xr &&
+        typeof navigator.xr.isSessionSupported === "function";
+
+
+    // -----------------------------------------------------
+    // SET INITIAL MODE IMMEDIATELY
+    //
+    // IMPORTANT:
+    // We DO NOT wait for WebXR before allowing the game
+    // to start.
+    // -----------------------------------------------------
+
+    if (CAPABILITIES.mobileLike) {
+
+        setDeviceMode("phone");
+
+    } else {
+
+        setDeviceMode("desktop");
     }
 
-    catch (error) {
 
-      warnConfig(
-        "Could not check immersive-ar support:",
-        error
-      );
+    CAPABILITIES.initialized = true;
 
-      CAPABILITIES.immersiveAR =
-        false;
+    updateDeviceStatus();
 
-    }
-
-  }
-
-
-  // -------------------------------------------------------
-  // DETERMINE INITIAL MODE
-  // -------------------------------------------------------
-
-  determineInitialMode();
-
-
-  CAPABILITIES.initialized =
-    true;
-
-
-  updateBodyMode();
-
-  updateStatusUI();
-
-
-  logConfig(
-    "Capabilities detected:",
-    { ...CAPABILITIES }
-  );
-
-
-  return CAPABILITIES;
-
-}
-
-
-// =========================================================
-// DETERMINE INITIAL MODE
-// =========================================================
-
-function determineInitialMode() {
-
-  /*
-    IMPORTANT:
-
-    We do NOT automatically call something "glasses"
-    merely because WebXR exists.
-
-    A phone may also support immersive AR.
-
-    Initial mode therefore remains phone/desktop.
-
-    Once an XR session actually starts, xr.js can promote
-    the interface into XR/glasses mode based on the
-    session/input sources.
-  */
-
-
-  if (CAPABILITIES.mobileLike) {
-
-    CAPABILITIES.mode =
-      "phone";
-
-    return;
-
-  }
-
-
-  CAPABILITIES.mode =
-    "desktop";
-
-}
-
-
-// =========================================================
-// SET MODE
-// =========================================================
-
-export function setDeviceMode(
-  mode
-) {
-
-  const allowedModes = [
-
-    "desktop",
-    "phone",
-    "glasses",
-    "xr"
-
-  ];
-
-
-  if (
-    !allowedModes.includes(mode)
-  ) {
-
-    warnConfig(
-      `Unknown device mode: ${mode}`
+    console.log(
+        "[CHILI] Basic device detection complete:",
+        CAPABILITIES
     );
 
-    return;
 
-  }
+    // -----------------------------------------------------
+    // WEBXR CHECK
+    //
+    // Some mobile browsers can take too long or fail here.
+    // Timeout prevents the entire game from hanging.
+    // -----------------------------------------------------
+
+    if (CAPABILITIES.webXR) {
+
+        try {
+
+            CAPABILITIES.immersiveAR =
+                await withTimeout(
+                    navigator.xr.isSessionSupported("immersive-ar"),
+                    1200,
+                    false
+                );
+
+        } catch (error) {
+
+            console.warn(
+                "[CHILI] WebXR capability check failed:",
+                error
+            );
+
+            CAPABILITIES.immersiveAR = false;
+        }
+    }
 
 
-  CAPABILITIES.mode =
-    mode;
+    // -----------------------------------------------------
+    // OPTIONAL XR FEATURES
+    //
+    // Actual availability will be confirmed when an XR
+    // session begins.
+    // -----------------------------------------------------
+
+    if (CAPABILITIES.immersiveAR) {
+
+        CAPABILITIES.handTracking = true;
+        CAPABILITIES.hitTest = true;
+        CAPABILITIES.domOverlay = true;
+    }
 
 
-  updateBodyMode();
+    updateDeviceStatus();
 
-  updateStatusUI();
+    updateDebugUI();
 
+    console.log(
+        "[CHILI] Full capability detection complete:",
+        CAPABILITIES
+    );
 
-  logConfig(
-    "Device mode:",
-    mode
-  );
-
+    return CAPABILITIES;
 }
 
 
-// =========================================================
-// BODY CSS MODE
-// =========================================================
+// ---------------------------------------------------------
+// DEVICE MODE
+// ---------------------------------------------------------
 
-function updateBodyMode() {
+export function setDeviceMode(mode) {
 
-  if (!document.body) {
-    return;
-  }
+    CAPABILITIES.mode = mode;
 
-
-  document.body.classList.remove(
-
-    "desktop-mode",
-    "phone-mode",
-    "glasses-mode"
-
-  );
-
-
-  switch (
-    CAPABILITIES.mode
-  ) {
-
-    case "phone":
-
-      document.body.classList.add(
-        "phone-mode"
-      );
-
-      break;
-
-
-    case "glasses":
-
-      document.body.classList.add(
-        "glasses-mode"
-      );
-
-      break;
-
-
-    case "xr":
-
-      /*
-        Generic XR mode.
-
-        We keep the HUD relatively clean until we know
-        whether this session should specifically use our
-        glasses interface.
-      */
-
-      document.body.classList.add(
-        "glasses-mode"
-      );
-
-      break;
-
-
-    default:
-
-      document.body.classList.add(
+    document.body.classList.remove(
+        "phone-mode",
+        "glasses-mode",
+        "xr-mode",
         "desktop-mode"
-      );
-
-      break;
-
-  }
-
-}
-
-
-// =========================================================
-// STATUS UI
-// =========================================================
-
-export function updateStatusUI() {
-
-  // -------------------------------------------------------
-  // START SCREEN STATUS
-  // -------------------------------------------------------
-
-  const deviceStatus =
-    document.getElementById(
-      "device-status"
     );
 
 
-  if (deviceStatus) {
+    if (mode === "phone") {
 
-    const parts = [];
+        document.body.classList.add("phone-mode");
 
+    } else if (mode === "glasses") {
 
-    parts.push(
-      `MODE: ${CAPABILITIES.mode.toUpperCase()}`
-    );
+        document.body.classList.add("glasses-mode");
 
+    } else if (mode === "xr") {
 
-    if (CAPABILITIES.touch) {
+        document.body.classList.add("xr-mode");
 
-      parts.push(
-        "TOUCH"
-      );
+    } else {
 
+        document.body.classList.add("desktop-mode");
     }
 
 
-    if (CAPABILITIES.orientation) {
+    updateDeviceStatus();
+    updateDebugUI();
+}
 
-      parts.push(
-        "GYRO"
-      );
 
+// ---------------------------------------------------------
+// STATUS TEXT
+// ---------------------------------------------------------
+
+export function updateDeviceStatus() {
+
+    const status =
+        document.getElementById("device-status");
+
+    if (!status) return;
+
+
+    if (!CAPABILITIES.initialized) {
+
+        status.textContent =
+            "DETECTING DEVICE...";
+
+        return;
+    }
+
+
+    if (CAPABILITIES.mode === "glasses") {
+
+        status.textContent =
+            "GLASSES READY";
+
+        return;
+    }
+
+
+    if (CAPABILITIES.mode === "xr") {
+
+        status.textContent =
+            "AR SESSION ACTIVE";
+
+        return;
+    }
+
+
+    if (CAPABILITIES.mobileLike) {
+
+        if (CAPABILITIES.immersiveAR) {
+
+            status.textContent =
+                "PHONE READY • AR AVAILABLE";
+
+        } else {
+
+            status.textContent =
+                "PHONE READY";
+        }
+
+        return;
     }
 
 
     if (CAPABILITIES.immersiveAR) {
 
-      parts.push(
-        "AR READY"
-      );
+        status.textContent =
+            "XR DEVICE READY";
 
+    } else {
+
+        status.textContent =
+            "DEBUG MODE";
     }
-
-    else if (
-      CAPABILITIES.webXR
-    ) {
-
-      parts.push(
-        "WEBXR"
-      );
-
-    }
-
-
-    deviceStatus.textContent =
-      parts.join(" // ");
-
-  }
-
-
-  // -------------------------------------------------------
-  // DEBUG MODE
-  // -------------------------------------------------------
-
-  const modeValue =
-    document.getElementById(
-      "mode-value"
-    );
-
-
-  if (modeValue) {
-
-    modeValue.textContent =
-      CAPABILITIES.mode.toUpperCase();
-
-  }
-
-
-  // -------------------------------------------------------
-  // XR STATUS
-  // -------------------------------------------------------
-
-  const xrValue =
-    document.getElementById(
-      "xr-value"
-    );
-
-
-  if (xrValue) {
-
-    xrValue.textContent =
-
-      CAPABILITIES.immersiveAR
-        ? "READY"
-        : "OFF";
-
-  }
-
-
-  // -------------------------------------------------------
-  // HEAD STATUS
-  // -------------------------------------------------------
-
-  const headValue =
-    document.getElementById(
-      "head-value"
-    );
-
-
-  if (headValue) {
-
-    headValue.textContent =
-
-      CAPABILITIES.orientation
-        ? "AVAILABLE"
-        : "OFF";
-
-  }
-
-
-  // -------------------------------------------------------
-  // HAND STATUS
-  // -------------------------------------------------------
-
-  const handValue =
-    document.getElementById(
-      "hand-value"
-    );
-
-
-  if (handValue) {
-
-    /*
-      Hand tracking cannot be truthfully confirmed until
-      an XR session/input source exposes it.
-    */
-
-    handValue.textContent =
-
-      CAPABILITIES.handTracking
-        ? "READY"
-        : "WAITING";
-
-  }
-
 }
 
 
-// =========================================================
-// MARK XR SESSION ACTIVE
-// =========================================================
-
-export function setXRPresenting(
-  active
-) {
-
-  if (!document.body) {
-    return;
-  }
-
-
-  document.body.classList.toggle(
-    "xr-presenting",
-    active
-  );
-
-
-  const xrValue =
-    document.getElementById(
-      "xr-value"
-    );
-
-
-  if (xrValue) {
-
-    xrValue.textContent =
-
-      active
-        ? "ACTIVE"
-        : (
-            CAPABILITIES.immersiveAR
-              ? "READY"
-              : "OFF"
-          );
-
-  }
-
-}
-
-
-// =========================================================
-// UPDATE XR CAPABILITIES
-//
-// Called after an XR session begins.
-// =========================================================
-
-export function updateXRCapabilities(
-  {
-    handTracking = false,
-    hitTest = false,
-    domOverlay = false
-  } = {}
-) {
-
-  CAPABILITIES.handTracking =
-    Boolean(handTracking);
-
-
-  CAPABILITIES.hitTest =
-    Boolean(hitTest);
-
-
-  CAPABILITIES.domOverlay =
-    Boolean(domOverlay);
-
-
-  updateStatusUI();
-
-
-  logConfig(
-    "XR capabilities updated:",
-    {
-      handTracking:
-        CAPABILITIES.handTracking,
-
-      hitTest:
-        CAPABILITIES.hitTest,
-
-      domOverlay:
-        CAPABILITIES.domOverlay
-    }
-  );
-
-}
-
-
-// =========================================================
-// HEAD CONTROL CSS STATE
-// =========================================================
-
-export function setHeadControlActive(
-  active
-) {
-
-  if (!document.body) {
-    return;
-  }
-
-
-  document.body.classList.toggle(
-    "head-control",
-    Boolean(active)
-  );
-
-
-  const headValue =
-    document.getElementById(
-      "head-value"
-    );
-
-
-  if (headValue) {
-
-    headValue.textContent =
-
-      active
-        ? "ACTIVE"
-        : (
-            CAPABILITIES.orientation
-              ? "AVAILABLE"
-              : "OFF"
-          );
-
-  }
-
-}
-
-
-// =========================================================
-// HAND CONTROL STATUS
-// =========================================================
-
-export function setHandControlActive(
-  active
-) {
-
-  const handValue =
-    document.getElementById(
-      "hand-value"
-    );
-
-
-  if (handValue) {
-
-    handValue.textContent =
-
-      active
-        ? "ACTIVE"
-        : (
-            CAPABILITIES.handTracking
-              ? "READY"
-              : "WAITING"
-          );
-
-  }
-
-}
-
-
-// =========================================================
-// REQUEST ORIENTATION PERMISSION
-//
-// MUST be called from a user gesture such as START,
-// ENABLE HEAD, etc.
-// =========================================================
+// ---------------------------------------------------------
+// ORIENTATION PERMISSION
+// ---------------------------------------------------------
 
 export async function requestOrientationPermission() {
 
-  if (
-    !CAPABILITIES.orientation
-  ) {
+    if (!CAPABILITIES.orientation) {
 
-    warnConfig(
-      "DeviceOrientationEvent is not available."
-    );
+        return false;
+    }
 
-    return false;
-
-  }
-
-
-  // -------------------------------------------------------
-  // iOS-style permission flow
-  // -------------------------------------------------------
-
-  if (
-    CAPABILITIES.orientationPermissionRequired
-  ) {
 
     try {
 
-      const result =
+        if (
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
 
-        await DeviceOrientationEvent
-          .requestPermission();
+            const result =
+                await DeviceOrientationEvent.requestPermission();
 
-
-      const granted =
-
-        result === "granted";
-
-
-      logConfig(
-        "Orientation permission:",
-        result
-      );
+            return result === "granted";
+        }
 
 
-      return granted;
+        return true;
 
+    } catch (error) {
+
+        console.warn(
+            "[CHILI] Orientation permission failed:",
+            error
+        );
+
+        return false;
+    }
+}
+
+
+// ---------------------------------------------------------
+// DEBUG UI
+// ---------------------------------------------------------
+
+export function updateDebugUI() {
+
+    const mode =
+        document.getElementById("debug-mode");
+
+    const xr =
+        document.getElementById("debug-xr");
+
+    const head =
+        document.getElementById("debug-head");
+
+    const hand =
+        document.getElementById("debug-hand");
+
+
+    if (mode) {
+
+        mode.textContent =
+            `MODE: ${CAPABILITIES.mode.toUpperCase()}`;
     }
 
-    catch (error) {
 
-      warnConfig(
-        "Orientation permission failed:",
-        error
-      );
+    if (xr) {
 
-
-      return false;
-
+        xr.textContent =
+            `XR: ${
+                CAPABILITIES.immersiveAR
+                    ? "AVAILABLE"
+                    : "NO"
+            }`;
     }
 
-  }
+
+    if (head) {
+
+        head.textContent =
+            `HEAD: ${
+                CAPABILITIES.orientation
+                    ? "AVAILABLE"
+                    : "NO"
+            }`;
+    }
 
 
-  // -------------------------------------------------------
-  // Browser exposes orientation without explicit request
-  // -------------------------------------------------------
+    if (hand) {
 
-  return true;
-
+        hand.textContent =
+            `HAND: ${
+                CAPABILITIES.handTracking
+                    ? "POSSIBLE"
+                    : "NO"
+            }`;
+    }
 }
 
 
-// =========================================================
-// HELPER QUERIES
-// =========================================================
+// ---------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------
 
-export function isPhoneMode() {
+export function isPhoneDevice() {
 
-  return (
-    CAPABILITIES.mode ===
-    "phone"
-  );
-
+    return CAPABILITIES.mobileLike;
 }
 
 
-export function isGlassesMode() {
+export function isXRAvailable() {
 
-  return (
-
-    CAPABILITIES.mode ===
-      "glasses"
-
-    ||
-
-    CAPABILITIES.mode ===
-      "xr"
-
-  );
-
+    return CAPABILITIES.immersiveAR;
 }
 
 
-export function supportsImmersiveAR() {
+export function getDeviceMode() {
 
-  return (
-    CAPABILITIES.immersiveAR
-  );
-
-}
-
-
-export function supportsOrientation() {
-
-  return (
-    CAPABILITIES.orientation
-  );
-
-}
-
-
-export function supportsTouch() {
-
-  return (
-    CAPABILITIES.touch
-  );
-
+    return CAPABILITIES.mode;
 }
