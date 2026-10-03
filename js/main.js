@@ -271,10 +271,15 @@ async function boot() {
     // PHONE / NORMAL START
     // -----------------------------------------------------
 
-    startButton?.addEventListener(
-      "click",
-      startGame
-    );
+    startButton.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  startGame();
+});
+
+startButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  startGame();
+});
 
 
     // -----------------------------------------------------
