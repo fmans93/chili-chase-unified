@@ -2,23 +2,25 @@
 // CHILI CHASE // UNIFIED
 // main.js
 //
-// UNIFIED V1 BOOTSTRAP
+// TARGETS:
+//   PHONE
+//   META / XR GLASSES
 //
-// TARGET DEVICES:
-//   - Phone
-//   - Meta / XR glasses
+// STARTUP:
 //
-// Connects:
-//   Scene
-//   Death Chili
-//   Phone controls
-//   Glasses gyro/head controls
-//   Meta hand/pinch controls
-//   WebXR
-//   Shared input
-//   Animation loop
+// PHONE:
+//   START GAME
 //
-// The laptop is NOT a gameplay target.
+// GLASSES:
+//   ENABLE HEAD CONTROL
+//        ↓
+//   gyro/head pointer
+//        ↓
+//   dwell START GAME
+//        ↓
+//   ENTER AR
+//        ↓
+//   Meta pinch/hold controls
 // =========================================================
 
 import * as THREE from "three";
@@ -73,7 +75,8 @@ import {
   initializeGlassesHead,
   enableGlassesHead,
   updateGlassesHead,
-  recenterHead
+  recenterHead,
+  isHeadControlEnabled
 } from "./input/glasses-head.js";
 
 import {
@@ -100,6 +103,8 @@ const GAME = {
   started: false,
 
   loading: false,
+
+  headEnabled: false,
 
   clock:
     new THREE.Clock(),
@@ -139,20 +144,36 @@ const startScreen =
     "start-screen"
   );
 
+
 const startButton =
   document.getElementById(
     "start-game"
   );
+
+
+const enableHeadButton =
+  document.getElementById(
+    "enable-head"
+  );
+
+
+const headStartMessage =
+  document.getElementById(
+    "head-start-message"
+  );
+
 
 const hud =
   document.getElementById(
     "hud"
   );
 
+
 const loadingScreen =
   document.getElementById(
     "loading-screen"
   );
+
 
 const errorScreen =
   document.getElementById(
@@ -168,7 +189,7 @@ boot();
 
 
 // =========================================================
-// INITIAL BOOT
+// BOOT
 // =========================================================
 
 async function boot() {
@@ -181,7 +202,7 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // SCENE FIRST
+    // SCENE
     // -----------------------------------------------------
 
     createScene();
@@ -215,7 +236,7 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // GAME COMMANDS
+    // COMMANDS
     // -----------------------------------------------------
 
     setupCommands();
@@ -229,14 +250,14 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // DEATH CHILI
+    // LOAD CHILI
     // -----------------------------------------------------
 
     await loadDeathChili();
 
 
     // -----------------------------------------------------
-    // INITIAL UI
+    // UI
     // -----------------------------------------------------
 
     updatePlayerHUD();
@@ -247,19 +268,29 @@ async function boot() {
 
 
     // -----------------------------------------------------
-    // START BUTTON
+    // PHONE / NORMAL START
     // -----------------------------------------------------
 
-    if (
-      startButton
-    ) {
+    startButton?.addEventListener(
+      "click",
+      startGame
+    );
 
-      startButton.addEventListener(
-        "click",
-        startGame
-      );
 
-    }
+    // -----------------------------------------------------
+    // GLASSES HEAD START
+    //
+    // IMPORTANT:
+    //
+    // Motion permission comes directly from this physical
+    // user interaction, matching the known-good glasses
+    // implementation.
+    // -----------------------------------------------------
+
+    enableHeadButton?.addEventListener(
+      "click",
+      enableHeadStartup
+    );
 
 
     GAME.initialized =
@@ -268,13 +299,6 @@ async function boot() {
 
     hideLoading();
 
-
-    /*
-      Start rendering now.
-
-      The game remains behind the START screen until the
-      user physically presses START.
-    */
 
     renderer.setAnimationLoop(
       gameLoop
@@ -309,14 +333,145 @@ async function boot() {
 
 
 // =========================================================
+// ENABLE GLASSES HEAD CONTROL
+//
+// This happens BEFORE game start.
+//
+// That is the key startup correction.
+// =========================================================
+
+async function enableHeadStartup() {
+
+  if (
+    !GAME.initialized
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    isHeadControlEnabled()
+  ) {
+
+    recenterHead();
+
+
+    setHeadStartupMessage(
+      "HEAD CONTROL ONLINE — LOOK AT START GAME"
+    );
+
+
+    return;
+
+  }
+
+
+  if (enableHeadButton) {
+
+    enableHeadButton.disabled =
+      true;
+
+
+    enableHeadButton.textContent =
+      "ENABLING...";
+  }
+
+
+  setHeadStartupMessage(
+    "REQUESTING MOTION CONTROL..."
+  );
+
+
+  const enabled =
+    await enableGlassesHead();
+
+
+  if (!enabled) {
+
+    if (enableHeadButton) {
+
+      enableHeadButton.disabled =
+        false;
+
+
+      enableHeadButton.textContent =
+        "ENABLE HEAD CONTROL";
+
+    }
+
+
+    setHeadStartupMessage(
+      "HEAD CONTROL FAILED — TRY AGAIN"
+    );
+
+
+    return;
+
+  }
+
+
+  GAME.headEnabled =
+    true;
+
+
+  /*
+    Treat this as our glasses-oriented interaction path.
+
+    We still do not claim that every browser exposing
+    DeviceOrientation is Meta hardware.
+  */
+
+  setDeviceMode(
+    "glasses"
+  );
+
+
+  updateStatusUI();
+
+
+  if (enableHeadButton) {
+
+    enableHeadButton.disabled =
+      true;
+
+
+    enableHeadButton.textContent =
+      "HEAD CONTROL ONLINE";
+
+  }
+
+
+  setHeadStartupMessage(
+    "LOOK AT START GAME AND HOLD YOUR VIEW"
+  );
+
+
+  showGameMessage(
+    "HEAD CONTROL ONLINE"
+  );
+
+
+  logConfig(
+    "Glasses startup head control enabled."
+  );
+
+}
+
+
+// =========================================================
 // START GAME
 //
-// IMPORTANT:
+// Phone:
+//     tap START
 //
-// This comes from a physical user press.
+// Glasses:
+//     head pointer dwells on START
+//     -> glasses-head.js calls button.click()
+//     -> this exact same function runs.
 //
-// That makes it the correct place to request sensor
-// permission when the browser requires a user gesture.
+// Therefore we maintain ONE game-start path.
 // =========================================================
 
 async function startGame() {
@@ -336,28 +491,39 @@ async function startGame() {
 
 
   // -------------------------------------------------------
-  // HEAD / GYRO
+  // PHONE SENSOR PATH
   //
-  // If DeviceOrientation exists, attempt to enable it.
+  // If head control wasn't already enabled from the
+  // glasses startup button, START may still request motion
+  // permission on devices that expose DeviceOrientation.
   //
-  // Failure is NOT fatal because the phone game should
-  // still run even if gyro permission isn't available.
+  // Failure is not fatal.
   // -------------------------------------------------------
 
   if (
+    !isHeadControlEnabled() &&
     CAPABILITIES.orientation
   ) {
 
     try {
 
-      await enableGlassesHead();
+      const enabled =
+        await enableGlassesHead();
+
+
+      if (enabled) {
+
+        GAME.headEnabled =
+          true;
+
+      }
 
     }
 
     catch (error) {
 
       warnConfig(
-        "Head control could not be enabled:",
+        "Orientation control unavailable:",
         error
       );
 
@@ -375,6 +541,16 @@ async function startGame() {
   ) {
 
     if (
+      GAME.headEnabled
+    ) {
+
+      setDeviceMode(
+        "glasses"
+      );
+
+    }
+
+    else if (
       CAPABILITIES.mobileLike
     ) {
 
@@ -388,7 +564,7 @@ async function startGame() {
 
 
   // -------------------------------------------------------
-  // UI
+  // HIDE START
   // -------------------------------------------------------
 
   startScreen?.classList.add(
@@ -396,15 +572,18 @@ async function startGame() {
   );
 
 
-  if (
-    hud
-  ) {
+  // -------------------------------------------------------
+  // SHOW HUD
+  // -------------------------------------------------------
 
-    hud.classList.remove(
-      "hidden"
-    );
+  hud?.classList.remove(
+    "hidden"
+  );
 
-  }
+
+  GAME.clock.start();
+
+  GAME.clock.getDelta();
 
 
   showGameMessage(
@@ -412,18 +591,20 @@ async function startGame() {
   );
 
 
-  /*
-    Start/reset the game clock here so loading time doesn't
-    create a huge first-frame delta.
-  */
-
-  GAME.clock.start();
-
-  GAME.clock.getDelta();
+  updateStatusUI();
 
 
   logConfig(
-    "Game started."
+    "Game started.",
+    {
+      headControl:
+        isHeadControlEnabled(),
+
+      mode:
+        GAME.headEnabled
+          ? "glasses"
+          : "phone"
+    }
   );
 
 }
@@ -431,18 +612,6 @@ async function startGame() {
 
 // =========================================================
 // GAME LOOP
-//
-// THREE's setAnimationLoop works for BOTH:
-//
-// normal browser rendering
-//
-// and
-//
-// WebXR rendering.
-//
-// During XR, Three passes:
-//   time
-//   XRFrame
 // =========================================================
 
 function gameLoop(
@@ -493,6 +662,7 @@ function gameLoop(
         )
 
         /
+
         1000;
 
     }
@@ -504,7 +674,7 @@ function gameLoop(
   }
 
   // -------------------------------------------------------
-  // NORMAL BROWSER DELTA
+  // NORMAL DELTA
   // -------------------------------------------------------
 
   else {
@@ -519,12 +689,6 @@ function gameLoop(
   }
 
 
-  // -------------------------------------------------------
-  // PROTECT AGAINST GIANT DELTAS
-  //
-  // Browser tab changes, debugging pauses, etc.
-  // -------------------------------------------------------
-
   deltaTime =
     THREE.MathUtils.clamp(
       deltaTime || 0,
@@ -533,8 +697,22 @@ function gameLoop(
     );
 
 
+  // =======================================================
+  // CRITICAL:
+  //
+  // HEAD CONTROL MUST UPDATE BEFORE GAME START.
+  //
+  // Otherwise the glasses could never use the pointer to
+  // dwell-select START GAME.
+  // =======================================================
+
+  updateGlassesHead(
+    deltaTime
+  );
+
+
   // -------------------------------------------------------
-  // UPDATE ONLY AFTER START
+  // GAME UPDATE
   // -------------------------------------------------------
 
   if (
@@ -550,21 +728,12 @@ function gameLoop(
 
   else {
 
-    /*
-      Chili animations may still idle behind the start
-      screen.
-    */
-
     updateChili(
       deltaTime
     );
 
   }
 
-
-  // -------------------------------------------------------
-  // RENDER
-  // -------------------------------------------------------
 
   renderer.render(
     scene,
@@ -575,7 +744,7 @@ function gameLoop(
 
 
 // =========================================================
-// UPDATE GAME
+// GAME UPDATE
 // =========================================================
 
 function updateGame(
@@ -593,18 +762,7 @@ function updateGame(
 
 
   // -------------------------------------------------------
-  // GLASSES HEAD / GYRO
-  // -------------------------------------------------------
-
-  updateGlassesHead(
-    deltaTime
-  );
-
-
-  // -------------------------------------------------------
-  // META XR HANDS
-  //
-  // This receives the REAL XRFrame.
+  // XR HANDS
   // -------------------------------------------------------
 
   if (
@@ -623,11 +781,7 @@ function updateGame(
   // -------------------------------------------------------
   // PHONE MOVEMENT
   //
-  // Do NOT apply shared joystick movement while XR is
-  // presenting.
-  //
-  // Glasses movement is handled by glasses-hands.js using
-  // the proven XR WORLD_ROOT shifting behavior.
+  // XR locomotion remains inside glasses-hands.js.
   // -------------------------------------------------------
 
   if (
@@ -642,10 +796,7 @@ function updateGame(
 
 
   // -------------------------------------------------------
-  // LOOK INPUT
-  //
-  // This remains available for future phone touch-look.
-  // We do not use it to override an XR headset camera.
+  // NON-XR LOOK
   // -------------------------------------------------------
 
   updateLookInput();
@@ -679,13 +830,8 @@ function updatePhoneMovement(
 
 
   if (
-    Math.abs(x) <
-      0.001
-
-    &&
-
-    Math.abs(z) <
-      0.001
+    Math.abs(x) < 0.001 &&
+    Math.abs(z) < 0.001
   ) {
 
     return;
@@ -713,14 +859,7 @@ function updatePhoneMovement(
 
 
 // =========================================================
-// LOOK INPUT
-//
-// Right now this mostly stays dormant.
-//
-// We keep the shared route ready so phone touch-look can
-// later feed the exact same game architecture.
-//
-// NEVER rotate the XR camera manually.
+// NON-XR LOOK
 // =========================================================
 
 function updateLookInput() {
@@ -757,27 +896,19 @@ function updateLookInput() {
 
 
 // =========================================================
-// SHARED GAME COMMANDS
+// COMMANDS
 // =========================================================
 
 function setupCommands() {
 
   // -------------------------------------------------------
-  // LASSO
+  // SHARED LASSO
   //
-  // BOTH:
-  //
-  // phone button
-  //
-  // and
-  //
+  // Phone LASSO
   // Meta short pinch
+  // Head dwell LASSO
   //
-  // arrive HERE.
-  //
-  // V1 only proves the shared command path.
-  // The next major system will replace this with the
-  // physical rope/lasso mechanic.
+  // all arrive here.
   // -------------------------------------------------------
 
   onCommand(
@@ -786,21 +917,9 @@ function setupCommands() {
   );
 
 
-  // -------------------------------------------------------
-  // RECENTER
-  // -------------------------------------------------------
-
   onCommand(
     COMMANDS.RECENTER,
     () => {
-
-      /*
-        glasses-head.js already recenters when its button
-        is pressed.
-
-        Keeping this command subscription means other
-        devices can request the same behavior later.
-      */
 
       logConfig(
         "RECENTER command received."
@@ -813,32 +932,18 @@ function setupCommands() {
 
 
 // =========================================================
-// TEMPORARY V1 LASSO COMMAND
+// TEMPORARY LASSO FEEDBACK
 //
-// IMPORTANT:
+// We still have NOT built the final physical rope.
 //
-// We are NOT building the fake line/raycast lasso from the
-// rough prototype.
-//
-// This is only feedback proving:
-//
-// PHONE LASSO BUTTON
-//
-//             and
-//
-// META SHORT PINCH
-//
-// both successfully reach the same gameplay command.
-//
-// The actual physical lasso comes next.
+// This only verifies that the shared action reached the
+// game.
 // =========================================================
 
-function handleLassoCommand(
-  event
-) {
+function handleLassoCommand(event) {
 
   logConfig(
-    "LASSO COMMAND RECEIVED:",
+    "LASSO COMMAND:",
     event.detail
   );
 
@@ -848,48 +953,42 @@ function handleLassoCommand(
   );
 
 
-  // -------------------------------------------------------
-  // SMALL CHILI REACTION
-  //
-  // If an attack animation exists, briefly use it as
-  // visible proof that the action path fired.
-  //
-  // This is temporary and NOT our final lasso behavior.
-  // -------------------------------------------------------
-
   if (
-    CHILI.loaded
+    !CHILI.loaded
   ) {
 
-    if (
-      CHILI.actions["attack"]
-    ) {
+    return;
 
-      playChiliAnimation(
-        "attack",
-        0.08
-      );
+  }
 
 
-      window.setTimeout(
-        () => {
+  if (
+    CHILI.actions?.attack
+  ) {
 
-          if (
-            CHILI.loaded
-          ) {
+    playChiliAnimation(
+      "attack",
+      0.08
+    );
 
-            playChiliAnimation(
-              "idle",
-              0.15
-            );
 
-          }
+    window.setTimeout(
+      () => {
 
-        },
-        500
-      );
+        if (
+          CHILI.loaded
+        ) {
 
-    }
+          playChiliAnimation(
+            "idle",
+            0.15
+          );
+
+        }
+
+      },
+      500
+    );
 
   }
 
@@ -902,63 +1001,39 @@ function handleLassoCommand(
 
 function setupXRLifecycle() {
 
-  // -------------------------------------------------------
-  // XR START
-  // -------------------------------------------------------
-
   onXRSessionStart(
-    async () => {
+    () => {
 
       GAME.lastXRFrameTime =
         0;
 
 
-      /*
-        If the user entered AR before pressing START,
-        treat the XR interaction as entering the actual
-        game.
-      */
-
-      if (
-        !GAME.started
-      ) {
-
-        GAME.started =
-          true;
+      GAME.started =
+        true;
 
 
-        startScreen?.classList.add(
-          "hidden"
-        );
+      startScreen?.classList.add(
+        "hidden"
+      );
 
 
-        hud?.classList.remove(
-          "hidden"
-        );
+      hud?.classList.remove(
+        "hidden"
+      );
 
-      }
+
+      setDeviceMode(
+        "xr"
+      );
+
+
+      updateStatusUI();
 
 
       /*
-        Recenter gyro/head HUD when possible.
-
-        We don't force it if sensor readings haven't arrived
-        yet.
+        Wait until the XR runtime has begun providing its
+        camera pose before positioning Chili.
       */
-
-      recenterHead();
-
-
-      // ---------------------------------------------------
-      // PLACE CHILI IN FRONT OF PLAYER
-      //
-      // This copies the useful behavior from the old
-      // working AR build: don't trust a fixed world Z after
-      // entering AR.
-      //
-      // Instead place Chili relative to the CURRENT XR
-      // camera.
-      // ---------------------------------------------------
 
       requestAnimationFrame(
         () => {
@@ -977,16 +1052,12 @@ function setupXRLifecycle() {
 
 
       logConfig(
-        "Unified game received XR session start."
+        "XR gameplay session started."
       );
 
     }
   );
 
-
-  // -------------------------------------------------------
-  // XR END
-  // -------------------------------------------------------
 
   onXRSessionEnd(
     () => {
@@ -996,6 +1067,30 @@ function setupXRLifecycle() {
 
 
       resetPhoneInput();
+
+
+      if (
+        GAME.headEnabled
+      ) {
+
+        setDeviceMode(
+          "glasses"
+        );
+
+      }
+
+      else if (
+        CAPABILITIES.mobileLike
+      ) {
+
+        setDeviceMode(
+          "phone"
+        );
+
+      }
+
+
+      updateStatusUI();
 
 
       showGameMessage(
@@ -1009,26 +1104,7 @@ function setupXRLifecycle() {
 
 
 // =========================================================
-// PLACE CHILI IN FRONT OF PLAYER
-//
-// Critical for AR.
-//
-// Fixed:
-//
-//     Chili.position.z = -4.5
-//
-// is unreliable because the user's XR origin/orientation
-// may not match our assumed desktop world.
-//
-// Instead:
-//
-//     current camera
-//          ↓
-//     flatten forward
-//          ↓
-//     4.5 meters ahead
-//          ↓
-//     floor Y = 0
+// PLACE CHILI IN FRONT OF CURRENT PLAYER
 // =========================================================
 
 function placeChiliInFrontOfPlayer(
@@ -1044,18 +1120,10 @@ function placeChiliInFrontOfPlayer(
   }
 
 
-  // -------------------------------------------------------
-  // CAMERA WORLD POSITION
-  // -------------------------------------------------------
-
   getCameraWorldPosition(
     tempCameraPosition
   );
 
-
-  // -------------------------------------------------------
-  // CAMERA FLAT FORWARD
-  // -------------------------------------------------------
 
   getFlatCameraForward(
     tempForward
@@ -1079,10 +1147,6 @@ function placeChiliInFrontOfPlayer(
   tempForward.normalize();
 
 
-  // -------------------------------------------------------
-  // WORLD TARGET
-  // -------------------------------------------------------
-
   tempSpawnWorld.copy(
     tempCameraPosition
   );
@@ -1094,20 +1158,9 @@ function placeChiliInFrontOfPlayer(
   );
 
 
-  /*
-    local-floor means floor level should be Y=0.
-  */
-
   tempSpawnWorld.y =
     0;
 
-
-  // -------------------------------------------------------
-  // CHILI IS CHILD OF WORLD_ROOT
-  //
-  // Convert desired WORLD position into WORLD_ROOT's local
-  // coordinates before assigning holder.position.
-  // -------------------------------------------------------
 
   WORLD_ROOT.updateMatrixWorld(
     true
@@ -1125,28 +1178,44 @@ function placeChiliInFrontOfPlayer(
 
 
   logConfig(
-    "Death Chili placed in front of player:",
+    "Chili placed in front of player:",
     {
-      distance,
+      x:
+        Number(
+          CHILI.holder.position.x.toFixed(2)
+        ),
 
-      position: {
-        x:
-          Number(
-            CHILI.holder.position.x.toFixed(2)
-          ),
+      y:
+        Number(
+          CHILI.holder.position.y.toFixed(2)
+        ),
 
-        y:
-          Number(
-            CHILI.holder.position.y.toFixed(2)
-          ),
-
-        z:
-          Number(
-            CHILI.holder.position.z.toFixed(2)
-          )
-      }
+      z:
+        Number(
+          CHILI.holder.position.z.toFixed(2)
+        )
     }
   );
+
+}
+
+
+// =========================================================
+// HEAD START MESSAGE
+// =========================================================
+
+function setHeadStartupMessage(
+  message
+) {
+
+  if (
+    headStartMessage
+  ) {
+
+    headStartMessage.textContent =
+      message;
+
+  }
 
 }
 
@@ -1156,11 +1225,6 @@ function placeChiliInFrontOfPlayer(
 // =========================================================
 
 function updatePlayerHUD() {
-
-  /*
-    Support a few likely IDs so the HUD isn't fragile while
-    we're building.
-  */
 
   const healthText =
 
@@ -1172,6 +1236,12 @@ function updatePlayerHUD() {
 
     document.getElementById(
       "player-health"
+    )
+
+    ||
+
+    document.getElementById(
+      "health-text"
     );
 
 
@@ -1180,13 +1250,12 @@ function updatePlayerHUD() {
   ) {
 
     healthText.textContent =
-      `${GAME.playerHealth}`;
+      `${GAME.playerHealth} / ${CONFIG.PLAYER.MAX_HEALTH}`;
 
   }
 
 
   const healthFill =
-
     document.getElementById(
       "health-fill"
     );
@@ -1204,7 +1273,6 @@ function updatePlayerHUD() {
         CONFIG.PLAYER.MAX_HEALTH,
 
         0,
-
         1
 
       )
@@ -1277,47 +1345,39 @@ function updateScoreHUD() {
 
 
 // =========================================================
-// LOADING UI
+// LOADING
 // =========================================================
 
-function showLoading(
-  message
-) {
+function showLoading(message) {
 
   GAME.loading =
     true;
 
 
-  if (
-    loadingScreen
-  ) {
+  loadingScreen?.classList.remove(
+    "hidden"
+  );
 
-    loadingScreen.classList.remove(
-      "hidden"
+
+  const text =
+
+    document.getElementById(
+      "loading-message"
+    )
+
+    ||
+
+    loadingScreen?.querySelector(
+      ".loading-text"
     );
 
 
-    const text =
+  if (
+    text
+  ) {
 
-      loadingScreen.querySelector(
-        ".loading-text"
-      )
-
-      ||
-
-      loadingScreen.querySelector(
-        "[data-loading-text]"
-      );
-
-
-    if (
-      text
-    ) {
-
-      text.textContent =
-        message;
-
-    }
+    text.textContent =
+      message;
 
   }
 
@@ -1342,50 +1402,42 @@ function hideLoading() {
 
 
 // =========================================================
-// ERROR UI
+// ERROR
 // =========================================================
 
-function showError(
-  message
-) {
+function showError(message) {
 
-  if (
-    errorScreen
-  ) {
+  errorScreen?.classList.remove(
+    "hidden"
+  );
 
-    errorScreen.classList.remove(
-      "hidden"
+
+  const text =
+
+    document.getElementById(
+      "error-message"
+    )
+
+    ||
+
+    errorScreen?.querySelector(
+      ".error-text"
     );
 
 
-    const text =
+  if (
+    text
+  ) {
 
-      errorScreen.querySelector(
-        ".error-text"
-      )
-
-      ||
-
-      errorScreen.querySelector(
-        "[data-error-text]"
-      );
-
-
-    if (
-      text
-    ) {
-
-      text.textContent =
-        message;
-
-    }
+    text.textContent =
+      message;
 
   }
 
 
-  showGameMessage(
-    message,
-    5000
+  console.error(
+    "[CHILI CHASE]",
+    message
   );
 
 }
