@@ -111,7 +111,7 @@ export async function detectCapabilities() {
 
     CAPABILITIES.initialized = true;
 
-    updateDeviceStatus();
+    updateStatusUI();
 
     console.log(
         "[CHILI] Basic device detection complete:",
@@ -164,7 +164,7 @@ export async function detectCapabilities() {
     }
 
 
-    updateDeviceStatus();
+    updateStatusUI();
 
     updateDebugUI();
 
@@ -211,7 +211,7 @@ export function setDeviceMode(mode) {
     }
 
 
-    updateDeviceStatus();
+    updateStatusUI();
     updateDebugUI();
 }
 
@@ -220,7 +220,7 @@ export function setDeviceMode(mode) {
 // STATUS TEXT
 // ---------------------------------------------------------
 
-export function updateDeviceStatus() {
+export function updateStatusUI() {
 
     const status =
         document.getElementById("device-status");
