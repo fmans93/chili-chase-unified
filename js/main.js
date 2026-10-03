@@ -342,40 +342,40 @@ async function boot() {
 
 async function enableHeadStartup() {
 
-  if (
-    !GAME.initialized
-  ) {
-
+  if (!GAME.initialized) {
     return;
-
   }
 
 
-  if (
-    isHeadControlEnabled()
-  ) {
+  // If head control is already running,
+  // just recenter and enter the game.
+  if (isHeadControlEnabled()) {
 
     recenterHead();
 
+    GAME.headEnabled = true;
 
-    setHeadStartupMessage(
-      "HEAD CONTROL ONLINE — LOOK AT START GAME"
-    );
+    setDeviceMode("glasses");
 
+    updateStatusUI();
+
+    await startGame();
 
     return;
-
   }
 
 
+  // -------------------------------------------------------
+  // ENABLE BUTTON FEEDBACK
+  // -------------------------------------------------------
+
   if (enableHeadButton) {
 
-    enableHeadButton.disabled =
-      true;
-
+    enableHeadButton.disabled = true;
 
     enableHeadButton.textContent =
       "ENABLING...";
+
   }
 
 
@@ -384,17 +384,26 @@ async function enableHeadStartup() {
   );
 
 
+  // -------------------------------------------------------
+  // REQUEST MOTION PERMISSION
+  //
+  // This is the part already confirmed working
+  // on your glasses.
+  // -------------------------------------------------------
+
   const enabled =
     await enableGlassesHead();
 
+
+  // -------------------------------------------------------
+  // FAILED
+  // -------------------------------------------------------
 
   if (!enabled) {
 
     if (enableHeadButton) {
 
-      enableHeadButton.disabled =
-        false;
-
+      enableHeadButton.disabled = false;
 
       enableHeadButton.textContent =
         "ENABLE HEAD CONTROL";
@@ -408,20 +417,15 @@ async function enableHeadStartup() {
 
 
     return;
-
   }
 
 
-  GAME.headEnabled =
-    true;
+  // =======================================================
+  // SUCCESS
+  // =======================================================
 
+  GAME.headEnabled = true;
 
-  /*
-    Treat this as our glasses-oriented interaction path.
-
-    We still do not claim that every browser exposing
-    DeviceOrientation is Meta hardware.
-  */
 
   setDeviceMode(
     "glasses"
@@ -433,10 +437,6 @@ async function enableHeadStartup() {
 
   if (enableHeadButton) {
 
-    enableHeadButton.disabled =
-      true;
-
-
     enableHeadButton.textContent =
       "HEAD CONTROL ONLINE";
 
@@ -444,18 +444,28 @@ async function enableHeadStartup() {
 
 
   setHeadStartupMessage(
-    "LOOK AT START GAME AND HOLD YOUR VIEW"
-  );
-
-
-  showGameMessage(
     "HEAD CONTROL ONLINE"
   );
 
 
   logConfig(
-    "Glasses startup head control enabled."
+    "Glasses head control enabled. Starting game."
   );
+
+
+  // =======================================================
+  // IMPORTANT
+  //
+  // DO NOT WAIT FOR ANOTHER START BUTTON.
+  //
+  // The working glasses reference dismissed its startup
+  // overlay immediately after head control was enabled.
+  //
+  // We do the equivalent here by entering our existing
+  // game-start path immediately.
+  // =======================================================
+
+  await startGame();
 
 }
 
