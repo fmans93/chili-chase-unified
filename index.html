@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
+  <meta name="theme-color" content="#050807">
+
+  <title>Chili Chase // Unified</title>
+
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- THREE.JS IMPORT MAP -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+
+  <!-- =========================================
+       THREE.JS / AR RENDER AREA
+  ========================================== -->
+  <div id="game-container"></div>
+
+
+  <!-- =========================================
+       START SCREEN
+  ========================================== -->
+  <div id="start-screen">
+
+    <div class="start-logo">
+      🌶️
+    </div>
+
+    <h1>CHILI CHASE</h1>
+
+    <div class="start-subtitle">
+      THE REAL WORLD IS THE LEVEL
+    </div>
+
+    <div id="device-status">
+      DETECTING DEVICE...
+    </div>
+
+    <button id="start-game">
+      START
+    </button>
+
+  </div>
+
+
+  <!-- =========================================
+       MAIN GAME HUD
+  ========================================== -->
+  <div id="hud" class="hidden">
+
+    <!-- TOP LEFT -->
+    <div class="hud-panel hud-top-left">
+
+      <div class="hud-title">
+        RODEO RANGER
+      </div>
+
+      <div class="hud-row">
+        HEALTH
+        <span id="health-value">100</span>
+      </div>
+
+      <div class="health-track">
+        <div id="health-bar"></div>
+      </div>
+
+    </div>
+
+
+    <!-- TOP CENTER -->
+    <div class="hud-panel hud-top-center">
+
+      <div class="chili-name">
+        DEATH CHILI
+      </div>
+
+      <div id="chili-status">
+        SEARCHING...
+      </div>
+
+    </div>
+
+
+    <!-- TOP RIGHT -->
+    <div class="hud-panel hud-top-right">
+
+      <div>
+        SCORE
+        <strong id="score-value">0</strong>
+      </div>
+
+      <div>
+        TOKENS
+        <strong id="token-value">0</strong>
+      </div>
+
+    </div>
+
+
+    <!-- =========================================
+         CENTER AIM RETICLE
+    ========================================== -->
+    <div id="reticle">
+
+      <div class="reticle-dot"></div>
+
+    </div>
+
+
+    <!-- =========================================
+         GLASSES HEAD POINTER
+    ========================================== -->
+    <div id="head-pointer"></div>
+
+
+    <!-- =========================================
+         STATUS / DEBUG
+    ========================================== -->
+    <div id="debug-panel">
+
+      <div>
+        MODE:
+        <span id="mode-value">DESKTOP</span>
+      </div>
+
+      <div>
+        XR:
+        <span id="xr-value">OFF</span>
+      </div>
+
+      <div>
+        HEAD:
+        <span id="head-value">OFF</span>
+      </div>
+
+      <div>
+        HAND:
+        <span id="hand-value">OFF</span>
+      </div>
+
+    </div>
+
+
+    <!-- =========================================
+         PHONE JOYSTICK
+    ========================================== -->
+    <div id="joystick-zone">
+
+      <div id="joystick-base">
+
+        <div id="joystick-stick"></div>
+
+      </div>
+
+    </div>
+
+
+    <!-- =========================================
+         PHONE ACTION BUTTONS
+    ========================================== -->
+    <div id="phone-actions">
+
+      <button
+        id="lasso-button"
+        class="game-button primary-action"
+      >
+        LASSO
+      </button>
+
+      <button
+        id="sprint-button"
+        class="game-button"
+      >
+        SPRINT
+      </button>
+
+    </div>
+
+
+    <!-- =========================================
+         XR / AR CONTROLS
+    ========================================== -->
+    <div id="xr-controls">
+
+      <button
+        id="enter-ar"
+        class="game-button ar-button"
+      >
+        ENTER AR
+      </button>
+
+      <button
+        id="recenter-head"
+        class="game-button"
+      >
+        RECENTER
+      </button>
+
+    </div>
+
+
+    <!-- =========================================
+         GAME MESSAGES
+    ========================================== -->
+    <div id="game-message">
+
+      CHILI SYSTEM READY
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================================
+       LOADING SCREEN
+  ========================================== -->
+  <div id="loading-screen" class="hidden">
+
+    <div class="loading-chili">
+      🌶️
+    </div>
+
+    <div class="loading-title">
+      LOADING CHILI CHASE
+    </div>
+
+    <div id="loading-status">
+      PREPARING WORLD...
+    </div>
+
+  </div>
+
+
+  <!-- =========================================
+       ERROR MESSAGE
+  ========================================== -->
+  <div id="error-screen" class="hidden">
+
+    <div class="error-title">
+      CHILI SYSTEM ERROR
+    </div>
+
+    <div id="error-message">
+      UNKNOWN ERROR
+    </div>
+
+  </div>
+
+
+  <!-- =========================================
+       MAIN APPLICATION
+  ========================================== -->
+  <script
+    type="module"
+    src="./js/main.js"
+  ></script>
+
+</body>
+</html>

@@ -1,0 +1,1037 @@
+/* =========================================================
+   CHILI CHASE // UNIFIED
+   V1 HUD + PHONE + GLASSES + AR UI
+========================================================= */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #020504;
+  color: #ffffff;
+
+  font-family:
+    Consolas,
+    Monaco,
+    "Courier New",
+    monospace;
+
+  touch-action: none;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+.hidden {
+  display: none !important;
+}
+
+
+/* =========================================================
+   GAME / THREE.JS CANVAS
+========================================================= */
+
+#game-container {
+  position: fixed;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at center,
+      #152019 0%,
+      #07100b 55%,
+      #020504 100%
+    );
+}
+
+#game-container canvas {
+  position: absolute;
+  inset: 0;
+
+  width: 100% !important;
+  height: 100% !important;
+
+  display: block;
+}
+
+
+/* =========================================================
+   START SCREEN
+========================================================= */
+
+#start-screen {
+  position: fixed;
+  inset: 0;
+
+  z-index: 1000;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  padding: 24px;
+
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      rgba(50, 120, 70, 0.25),
+      transparent 40%
+    ),
+    linear-gradient(
+      180deg,
+      #07100b,
+      #020504
+    );
+}
+
+#start-screen::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  opacity: 0.18;
+
+  background-image:
+    linear-gradient(
+      rgba(0, 255, 136, 0.15) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(0, 255, 136, 0.15) 1px,
+      transparent 1px
+    );
+
+  background-size: 40px 40px;
+}
+
+.start-logo {
+  position: relative;
+
+  font-size: 70px;
+
+  margin-bottom: 10px;
+
+  filter:
+    drop-shadow(
+      0 0 22px rgba(255, 70, 20, 0.55)
+    );
+}
+
+#start-screen h1 {
+  position: relative;
+
+  font-size: clamp(32px, 7vw, 62px);
+
+  letter-spacing: 5px;
+
+  color: #ff5538;
+
+  text-shadow:
+    0 0 8px rgba(255, 85, 56, 0.6),
+    0 0 25px rgba(255, 85, 56, 0.25);
+}
+
+.start-subtitle {
+  position: relative;
+
+  margin-top: 7px;
+
+  font-size: clamp(9px, 2.5vw, 14px);
+
+  letter-spacing: 3px;
+
+  color: #00ff88;
+}
+
+#device-status {
+  position: relative;
+
+  margin-top: 28px;
+
+  padding: 8px 14px;
+
+  border:
+    1px solid rgba(0, 255, 136, 0.35);
+
+  background:
+    rgba(0, 20, 12, 0.65);
+
+  color: #76dca8;
+
+  font-size: 10px;
+
+  letter-spacing: 1px;
+}
+
+#start-game {
+  position: relative;
+
+  margin-top: 22px;
+
+  min-width: 180px;
+
+  padding: 14px 28px;
+
+  border:
+    1px solid #00ff88;
+
+  border-radius: 5px;
+
+  background:
+    rgba(0, 255, 136, 0.09);
+
+  color: #00ff88;
+
+  font-size: 15px;
+
+  font-weight: bold;
+
+  letter-spacing: 2px;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 0 18px rgba(0, 255, 136, 0.15);
+
+  transition:
+    transform 0.12s,
+    background 0.12s,
+    box-shadow 0.12s;
+}
+
+#start-game:hover {
+  background:
+    rgba(0, 255, 136, 0.17);
+
+  box-shadow:
+    0 0 25px rgba(0, 255, 136, 0.25);
+}
+
+#start-game:active {
+  transform: scale(0.95);
+}
+
+
+/* =========================================================
+   MAIN HUD
+========================================================= */
+
+#hud {
+  position: fixed;
+  inset: 0;
+
+  z-index: 100;
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   GENERIC HUD PANEL
+========================================================= */
+
+.hud-panel {
+  position: fixed;
+
+  padding: 9px 12px;
+
+  border:
+    1px solid rgba(0, 255, 136, 0.45);
+
+  border-radius: 3px;
+
+  background:
+    rgba(0, 12, 8, 0.68);
+
+  color: #baffd7;
+
+  backdrop-filter: blur(4px);
+
+  box-shadow:
+    0 0 16px rgba(0, 255, 136, 0.08);
+
+  font-size: 10px;
+
+  letter-spacing: 1px;
+}
+
+.hud-title {
+  margin-bottom: 6px;
+
+  color: #00ff88;
+
+  font-size: 11px;
+
+  font-weight: bold;
+
+  letter-spacing: 2px;
+}
+
+.hud-row {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 18px;
+}
+
+
+/* =========================================================
+   TOP LEFT
+========================================================= */
+
+.hud-top-left {
+  top: 14px;
+  left: 14px;
+
+  width: 175px;
+}
+
+
+/* =========================================================
+   HEALTH BAR
+========================================================= */
+
+.health-track {
+  width: 100%;
+  height: 5px;
+
+  margin-top: 6px;
+
+  overflow: hidden;
+
+  background:
+    rgba(255, 255, 255, 0.12);
+}
+
+#health-bar {
+  width: 100%;
+  height: 100%;
+
+  background: #00ff88;
+
+  box-shadow:
+    0 0 8px rgba(0, 255, 136, 0.6);
+
+  transition: width 0.2s;
+}
+
+
+/* =========================================================
+   TOP CENTER
+========================================================= */
+
+.hud-top-center {
+  top: 14px;
+  left: 50%;
+
+  min-width: 170px;
+
+  text-align: center;
+
+  transform: translateX(-50%);
+}
+
+.chili-name {
+  color: #ff694e;
+
+  font-size: 11px;
+
+  font-weight: bold;
+
+  letter-spacing: 2px;
+}
+
+#chili-status {
+  margin-top: 4px;
+
+  color: #d6ffe6;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   TOP RIGHT
+========================================================= */
+
+.hud-top-right {
+  top: 14px;
+  right: 14px;
+
+  min-width: 115px;
+
+  line-height: 1.7;
+}
+
+.hud-top-right strong {
+  float: right;
+
+  margin-left: 15px;
+
+  color: #00ff88;
+}
+
+
+/* =========================================================
+   AIM RETICLE
+========================================================= */
+
+#reticle {
+  position: fixed;
+
+  left: 50%;
+  top: 50%;
+
+  width: 46px;
+  height: 46px;
+
+  transform:
+    translate(-50%, -50%);
+
+  border:
+    1px solid rgba(255, 255, 255, 0.55);
+
+  border-radius: 50%;
+
+  pointer-events: none;
+}
+
+#reticle::before,
+#reticle::after {
+  content: "";
+
+  position: absolute;
+
+  background:
+    rgba(255, 255, 255, 0.65);
+}
+
+#reticle::before {
+  width: 62px;
+  height: 1px;
+
+  left: -9px;
+  top: 22px;
+}
+
+#reticle::after {
+  width: 1px;
+  height: 62px;
+
+  left: 22px;
+  top: -9px;
+}
+
+.reticle-dot {
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 4px;
+  height: 4px;
+
+  transform:
+    translate(-50%, -50%);
+
+  border-radius: 50%;
+
+  background: #ff5538;
+
+  box-shadow:
+    0 0 8px #ff5538;
+}
+
+
+/* =========================================================
+   GLASSES HEAD POINTER
+========================================================= */
+
+#head-pointer {
+  position: fixed;
+
+  left: 50%;
+  top: 50%;
+
+  width: 22px;
+  height: 22px;
+
+  margin-left: -11px;
+  margin-top: -11px;
+
+  border:
+    2px solid #38dfff;
+
+  border-radius: 50%;
+
+  box-shadow:
+    0 0 14px rgba(56, 223, 255, 0.85);
+
+  pointer-events: none;
+
+  opacity: 0;
+
+  z-index: 150;
+}
+
+#head-pointer::after {
+  content: "";
+
+  position: absolute;
+
+  left: 7px;
+  top: 7px;
+
+  width: 4px;
+  height: 4px;
+
+  border-radius: 50%;
+
+  background: #38dfff;
+}
+
+body.head-control #head-pointer {
+  opacity: 1;
+}
+
+
+/* =========================================================
+   DEBUG PANEL
+========================================================= */
+
+#debug-panel {
+  position: fixed;
+
+  left: 12px;
+  bottom: 12px;
+
+  padding: 7px 9px;
+
+  border:
+    1px solid rgba(56, 223, 255, 0.25);
+
+  background:
+    rgba(0, 10, 8, 0.55);
+
+  color: #73a991;
+
+  font-size: 8px;
+
+  line-height: 1.6;
+
+  letter-spacing: 1px;
+}
+
+#debug-panel span {
+  color: #38dfff;
+}
+
+
+/* =========================================================
+   PHONE JOYSTICK
+========================================================= */
+
+#joystick-zone {
+  position: fixed;
+
+  left: 18px;
+  bottom: 35px;
+
+  width: 150px;
+  height: 150px;
+
+  display: none;
+
+  align-items: center;
+  justify-content: center;
+
+  pointer-events: auto;
+}
+
+#joystick-base {
+  position: relative;
+
+  width: 112px;
+  height: 112px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.28);
+
+  border-radius: 50%;
+
+  background:
+    rgba(0, 0, 0, 0.28);
+
+  box-shadow:
+    inset 0 0 18px rgba(255, 255, 255, 0.04);
+}
+
+#joystick-stick {
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 48px;
+  height: 48px;
+
+  transform:
+    translate(-50%, -50%);
+
+  border:
+    1px solid rgba(0, 255, 136, 0.8);
+
+  border-radius: 50%;
+
+  background:
+    rgba(0, 255, 136, 0.16);
+
+  box-shadow:
+    0 0 15px rgba(0, 255, 136, 0.18);
+}
+
+
+/* =========================================================
+   PHONE ACTION BUTTONS
+========================================================= */
+
+#phone-actions {
+  position: fixed;
+
+  right: 20px;
+  bottom: 40px;
+
+  display: none;
+
+  gap: 12px;
+
+  align-items: flex-end;
+
+  pointer-events: auto;
+}
+
+.game-button {
+  min-width: 80px;
+
+  padding: 11px 14px;
+
+  border:
+    1px solid rgba(0, 255, 136, 0.7);
+
+  border-radius: 6px;
+
+  background:
+    rgba(0, 25, 15, 0.72);
+
+  color: #00ff88;
+
+  font-size: 10px;
+
+  font-weight: bold;
+
+  letter-spacing: 1px;
+
+  cursor: pointer;
+
+  pointer-events: auto;
+
+  box-shadow:
+    0 0 12px rgba(0, 255, 136, 0.08);
+}
+
+.game-button:active {
+  transform: scale(0.93);
+
+  background:
+    rgba(0, 255, 136, 0.25);
+}
+
+.primary-action {
+  width: 88px;
+  height: 88px;
+
+  border:
+    2px solid #ff694e;
+
+  border-radius: 50%;
+
+  color: #ffffff;
+
+  background:
+    rgba(150, 25, 10, 0.52);
+
+  box-shadow:
+    0 0 20px rgba(255, 80, 45, 0.25);
+}
+
+
+/* =========================================================
+   AR CONTROLS
+========================================================= */
+
+#xr-controls {
+  position: fixed;
+
+  right: 12px;
+  bottom: 12px;
+
+  display: flex;
+
+  gap: 7px;
+
+  pointer-events: auto;
+}
+
+.ar-button {
+  border-color: #38dfff;
+
+  color: #38dfff;
+
+  background:
+    rgba(20, 80, 100, 0.2);
+}
+
+
+/* =========================================================
+   GAME MESSAGE
+========================================================= */
+
+#game-message {
+  position: fixed;
+
+  left: 50%;
+  bottom: 18%;
+
+  min-width: 230px;
+
+  max-width: 75%;
+
+  padding: 9px 14px;
+
+  transform:
+    translateX(-50%);
+
+  border:
+    1px solid rgba(56, 223, 255, 0.4);
+
+  border-radius: 3px;
+
+  background:
+    rgba(0, 12, 9, 0.82);
+
+  color: #38dfff;
+
+  text-align: center;
+
+  font-size: 10px;
+
+  letter-spacing: 1px;
+
+  opacity: 0;
+
+  transition: opacity 0.2s;
+
+  pointer-events: none;
+}
+
+#game-message.show {
+  opacity: 1;
+}
+
+
+/* =========================================================
+   LOADING SCREEN
+========================================================= */
+
+#loading-screen {
+  position: fixed;
+  inset: 0;
+
+  z-index: 900;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  background:
+    rgba(2, 5, 4, 0.96);
+
+  text-align: center;
+}
+
+.loading-chili {
+  font-size: 58px;
+
+  animation:
+    chiliPulse 0.8s ease-in-out infinite alternate;
+}
+
+.loading-title {
+  margin-top: 15px;
+
+  color: #00ff88;
+
+  font-size: 14px;
+
+  font-weight: bold;
+
+  letter-spacing: 3px;
+}
+
+#loading-status {
+  margin-top: 8px;
+
+  color: #75a88d;
+
+  font-size: 9px;
+
+  letter-spacing: 1px;
+}
+
+@keyframes chiliPulse {
+  from {
+    transform: scale(0.9);
+  }
+
+  to {
+    transform: scale(1.1);
+  }
+}
+
+
+/* =========================================================
+   ERROR SCREEN
+========================================================= */
+
+#error-screen {
+  position: fixed;
+  inset: 0;
+
+  z-index: 2000;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+
+  background:
+    rgba(15, 0, 0, 0.96);
+
+  text-align: center;
+}
+
+.error-title {
+  color: #ff5538;
+
+  font-size: 20px;
+
+  font-weight: bold;
+
+  letter-spacing: 2px;
+}
+
+#error-message {
+  max-width: 600px;
+
+  margin-top: 14px;
+
+  color: #ffc0b6;
+
+  font-size: 11px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   PHONE MODE
+========================================================= */
+
+body.phone-mode #joystick-zone {
+  display: flex;
+}
+
+body.phone-mode #phone-actions {
+  display: flex;
+}
+
+/*
+   On a phone we don't need the debug information
+   taking up valuable screen space.
+*/
+body.phone-mode #debug-panel {
+  opacity: 0.45;
+}
+
+
+/* =========================================================
+   GLASSES MODE
+========================================================= */
+
+body.glasses-mode #joystick-zone,
+body.glasses-mode #phone-actions {
+  display: none;
+}
+
+/*
+   Keep the glasses display cleaner than the phone HUD.
+*/
+body.glasses-mode .hud-panel {
+  background:
+    rgba(0, 10, 7, 0.48);
+}
+
+body.glasses-mode #debug-panel {
+  opacity: 0.7;
+}
+
+
+/* =========================================================
+   XR PRESENTING
+========================================================= */
+
+body.xr-presenting #joystick-zone,
+body.xr-presenting #phone-actions {
+  opacity: 0.78;
+}
+
+body.xr-presenting #xr-controls {
+  opacity: 0.7;
+}
+
+
+/* =========================================================
+   SMALL PHONE SCREENS
+========================================================= */
+
+@media (max-width: 650px) {
+
+  .hud-top-left {
+    top: 8px;
+    left: 8px;
+
+    width: 135px;
+
+    padding: 7px 8px;
+  }
+
+  .hud-title {
+    font-size: 9px;
+  }
+
+  .hud-top-center {
+    top: 8px;
+
+    min-width: 120px;
+
+    padding: 7px 8px;
+  }
+
+  .chili-name {
+    font-size: 9px;
+  }
+
+  #chili-status {
+    font-size: 7px;
+  }
+
+  .hud-top-right {
+    top: 8px;
+    right: 8px;
+
+    min-width: 90px;
+
+    padding: 7px 8px;
+
+    font-size: 8px;
+  }
+
+  #joystick-zone {
+    left: 3px;
+    bottom: 12px;
+  }
+
+  #phone-actions {
+    right: 12px;
+    bottom: 20px;
+  }
+
+  .primary-action {
+    width: 76px;
+    height: 76px;
+
+    font-size: 9px;
+  }
+
+  #xr-controls {
+    right: 8px;
+    bottom: 118px;
+
+    flex-direction: column;
+  }
+
+  #debug-panel {
+    display: none;
+  }
+
+}
+
+
+/* =========================================================
+   LANDSCAPE PHONE
+========================================================= */
+
+@media (
+  max-height: 500px
+) and (
+  orientation: landscape
+) {
+
+  .hud-top-left,
+  .hud-top-center,
+  .hud-top-right {
+    top: 5px;
+  }
+
+  #joystick-zone {
+    bottom: 0;
+  }
+
+  #phone-actions {
+    bottom: 12px;
+  }
+
+  #game-message {
+    bottom: 8%;
+  }
+
+}
