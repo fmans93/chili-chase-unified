@@ -26,7 +26,7 @@ export const CONFIG = {
 
     // Our first V1 enemy.
     DEATH_CHILI:
-      "./assets/chilideath.glb"
+      "./assets/chilizombie.glb"
 
   },
 
