@@ -212,7 +212,17 @@ async function boot() {
     // CAPABILITIES
     // -----------------------------------------------------
 
-    await detectCapabilities();
+    detectCapabilities()
+  .then(() => {
+    updateStatusUI();
+    logConfig("Capability detection complete.");
+  })
+  .catch((error) => {
+    warnConfig(
+      "Capability detection failed — continuing anyway:",
+      error
+    );
+  });
 
 
     // -----------------------------------------------------
