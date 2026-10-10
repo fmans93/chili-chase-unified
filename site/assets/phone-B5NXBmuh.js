@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./app-Dl9z-Ygv.js","./game-actions-HZeZeSFe.js","./game-actions-C5Al7ISZ.css","./token-rush-view-Cfa9SQxy.js","./app-BNL3l0iG.css"])))=>i.map(i=>d[i]);
+import{_ as t}from"./preload-helper-DMGCcr4D.js";t(()=>import("./app-Dl9z-Ygv.js"),__vite__mapDeps([0,1,2,3,4]),import.meta.url).catch(e=>{console.error("[ar] startup failed",e),document.getElementById("loading").textContent=`Unable to start graphics: ${e.message}. Use a browser with WebGL enabled and reload.`});
