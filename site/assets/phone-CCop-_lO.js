@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./app-HBIp3wa7.js","./grounding-BygAS_ox.js","./game-actions-DAhx1qOr.js","./app-GHUjx5AG.css"])))=>i.map(i=>d[i]);
+import{_ as t}from"./preload-helper-DMGCcr4D.js";t(()=>import("./app-HBIp3wa7.js"),__vite__mapDeps([0,1,2,3]),import.meta.url).catch(e=>{console.error("[ar] startup failed",e),document.getElementById("loading").textContent=`Unable to start graphics: ${e.message}. Use a browser with WebGL enabled and reload.`});
