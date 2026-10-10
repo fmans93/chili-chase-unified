@@ -1,21 +1,25 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="mrbd-web-app-capable" content="yes"><title>Chili Chase · Display gameplay</title>  <script type="module" crossorigin src="./assets/glasses-IEax6MQY.js"></script>
+<meta name="mrbd-web-app-capable" content="yes"><title>Chili Chase · Display gameplay</title>  <script type="module" crossorigin src="./assets/glasses-D4grCLaw.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-DMGCcr4D.js">
   <link rel="modulepreload" crossorigin href="./assets/game-actions-DAhx1qOr.js">
-  <link rel="stylesheet" crossorigin href="./assets/glasses-oLt_elkh.css">
+  <link rel="stylesheet" crossorigin href="./assets/glasses-B3EB91Nx.css">
 </head>
 <body><main>
   <header><h1>Chili Chase</h1><span>DISPLAY GAMEPLAY</span></header>
   <section id="play">
-    <div id="stage" aria-label="Original chili in a virtual patrol scene"></div>
+    <div id="stage" aria-label="Independent chili in an orientation-only virtual encounter"></div>
+    <div id="reticle" aria-hidden="true">+</div><p id="target">Orientation-only virtual encounter</p>
+    <div id="hud">
     <p id="encounter">Encounter · waiting</p><p id="stats">Tags 0/2 · Ammo 30 · Health 100 · Score 0</p>
     <p id="message" role="status">Meet the original chili, then use the controls to watch the patrol and interact.</p>
     <nav><button id="load">Meet the chili</button><button id="aim" disabled>Aim at chili</button><button id="attack" disabled>Tag chili</button></nav>
     <nav><button id="collect" disabled>Collect token</button><button id="view-mode">Virtual view controls</button></nav>
     <p id="wallet">Practice tokens 0 · XP 0</p>
-    <nav><button id="orientation">Enable orientation</button><button id="details">Diagnostics</button></nav>
-    <small>Virtual display patrol · no room mapping or position tracking. Select “Virtual view controls” to pan with the D-pad; select again to navigate buttons.</small>
+    <nav><button id="orientation">Enable orientation</button><button id="recenter">Recenter</button><button id="details">Diagnostics</button></nav>
+    <nav><button id="radius">Virtual radius: 2.4 m</button></nav>
+    <small>Orientation-only · no room mapping. D-pad selects buttons; manual view is optional.</small>
+    </div>
   </section>
   <section id="report" hidden><pre id="diagnostics"></pre><button id="back">Return to chili</button></section>
 </main></body></html>
