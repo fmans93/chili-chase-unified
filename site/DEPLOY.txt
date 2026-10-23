@@ -1,0 +1,2 @@
+Chili Chase Pages deploy trigger.
+Glasses AR rendering fix deployed 2026-10-23: opaque scene background per ar-chili-run recipe, fallback scene, load progress.
