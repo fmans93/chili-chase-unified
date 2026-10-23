@@ -2,13 +2,7 @@
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <meta name="mrbd-web-app-capable" content="yes">
-<title>Chili Chase · Glasses AR</title>  <script type="module" crossorigin src="./assets/glassesAr-DvwfXm7U.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="./assets/defense-pose-CPFj2ICZ.js">
-  <link rel="modulepreload" crossorigin href="./assets/ar-Cl9prLow.js">
-  <link rel="stylesheet" crossorigin href="./assets/ar-BephR8cL.css">
-  <link rel="stylesheet" crossorigin href="./assets/glassesAr-D6qmnoRx.css">
-</head>
+<title>Chili Chase · Glasses AR</title></head>
 <body><main>
   <header><h1>Chili Chase</h1><span>GLASSES AR</span></header>
   <section id="play">
@@ -31,4 +25,64 @@
   </section>
   <p><a href="./index.html">Phone game</a> · <a href="./glasses.html">Existing glasses page (unchanged)</a></p>
 </main>
+<script type="module" src="./assets/glassesAr-CLNRcQG2.js"></script>
+<script>
+// Fallback renderer, in the spirit of the proven ar-chili-run page: the screen
+// must never be blank. If the ES-module game never boots (module scripts
+// unsupported, a load failure, or a script error before its error hooks), this
+// classic script draws a simple animated scene on a plain 2D canvas and says so.
+(function () {
+  var status = document.getElementById('load-status');
+  var message = document.getElementById('message');
+  function say(text) { if (status) status.textContent = text; }
+  var checked = 0;
+  var timer = setInterval(function () {
+    checked++;
+    if (window.__glassesARLoading === false && !window.__glassesARFailed) { clearInterval(timer); return; }
+    if (checked < 40) return; // give the module game ~20 seconds
+    clearInterval(timer);
+    if (window.__glassesARFailed) return; // module already reported its own failure
+    say('Game module did not start. Showing fallback scene.');
+    if (message) message.textContent = 'Fallback mode: the full game could not start in this browser. A test scene is rendering.';
+    var stage = document.getElementById('stage');
+    if (!stage) return;
+    var canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    canvas.style.cssText = 'position:fixed;inset:0;z-index:1;';
+    stage.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    var t = 0;
+    function loop() {
+      t += 0.016;
+      ctx.fillStyle = '#11151b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Ground grid.
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      for (var i = 0; i < 12; i++) {
+        var y = canvas.height * 0.55 + i * i * 2.2;
+        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+      }
+      for (var x = -6; x <= 6; x++) {
+        ctx.moveTo(canvas.width / 2 + x * 40, canvas.height * 0.55);
+        ctx.lineTo(canvas.width / 2 + x * 160, canvas.height);
+      }
+      ctx.stroke();
+      // A chili placeholder bobbing ahead of the viewer.
+      var bob = Math.sin(t * 2) * 14;
+      var cx = canvas.width / 2, cy = canvas.height * 0.45 + bob;
+      ctx.fillStyle = '#d92222';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 22, 44, Math.sin(t) * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#3fae4a';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 46, 10, 16, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  }, 500);
+})();
+</script>
 </body></html>
