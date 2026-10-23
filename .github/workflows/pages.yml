@@ -3,6 +3,8 @@ name: Publish reviewed Chili Chase build
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - 'site/**'
 permissions:
