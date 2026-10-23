@@ -1,11 +1,10 @@
 <!doctype html><html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#14211e"><title>Chili Chase AR</title>  <script type="module" crossorigin src="./assets/phone-BGG-_6QS.js"></script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#14211e"><title>Chili Chase AR</title>  <script type="module" crossorigin src="./assets/phone-DCuYboCu.js"></script>
   <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="./assets/preload-helper-PPVm8Dsz.js">
 </head><body>
 <video id="camera" autoplay muted playsinline aria-label="Live rear camera"></video>
 <canvas id="game" aria-label="Chili AR scene. Drag to aim independently of viewing direction."></canvas>
-<canvas id="vision-debug" hidden aria-label="Optional Chili Vision detection labels; image positions are not world coordinates"></canvas>
 <main id="hud" data-layout="smart">
 <div id="aim-surface" aria-label="Touch aiming surface"></div>
 <header><h1>Chili Chase</h1><span><b id="xp">0</b> XP · <b id="tokens">0</b> practice tokens</span></header>
@@ -18,24 +17,7 @@
 <label>Sound <input id="volume" type="range" min="0" max="1" step=".05" value=".3"></label><label><input id="mute" type="checkbox"> Mute</label>
 <label>Personality <select id="personality"><option value="trickster">Trickster</option><option value="coward">Coward</option><option value="fighter">Fighter</option><option value="sneaky">Sneaky</option><option value="show-off">Show-off</option></select> (next chili)</label>
 <label><input id="flight-clear" type="checkbox"> I checked the space above this patch is clear</label><button id="drone-arrival">Drone arrival</button>
-<fieldset><legend>Chili Vision V3 · optional local perception</legend>
-<p>Enable downloads the object model from Google storage. Camera images stay in this app; no cloud analysis or face identification. Camera overlay detects in 2D only. Spatial AR needs a measured camera provider; no second camera is opened.</p>
-<button id="vision-toggle">Enable Chili Vision</button><label>Detection limit <select id="vision-frequency"><option value="2">2 per second</option><option value="4" selected>4 per second</option><option value="8">8 per second (device test)</option></select></label>
-<p id="vision-status" role="status">Vision off</p></fieldset>
-<fieldset id="vision-developer-controls" hidden><legend>Developer tools</legend>
-<label><input id="vision-debug-toggle" type="checkbox"> Vision Debug</label>
-<p>Local diagnostics only. This opt-in is not administrator authentication and grants no server or reward privileges.</p></fieldset>
 </details><p id="rodeo-status" hidden role="status"></p><button id="start-rodeo" hidden>Start Token Rush</button><p id="movement-status" hidden role="status"></p><div id="placement-actions"><button id="boundary" hidden>Map movement patch</button><button id="corner" hidden>Mark corner</button></div>
-<div id="aim" aria-hidden="true"></div><div id="move-pad" hidden aria-label="Preview movement joystick">MOVE<br>preview only</div><button id="capture" disabled>Tag chili</button><pre id="diagnostics" hidden></pre>
-<section id="vision-panel" hidden aria-label="Vision Debug diagnostics">
-<header><h2>Vision Debug</h2><button id="vision-debug-close" type="button" aria-label="Close Vision Debug">Close</button></header>
-<dl id="vision-summary"></dl><p id="vision-debug-status"></p>
-<p id="vision-brain-decision"></p><p id="vision-last-action" role="status"></p>
-<details><summary>Detected objects and test commands</summary>
-<p>Detection is not depth. Only fresh measured cover on approved floor may move the Chili. Jumping is unsupported.</p>
-<label>Target <select id="vision-target"><option value="">Choose a detected object</option></select></label>
-<nav><button id="vision-hide" type="button">Chili, hide behind that chair.</button><button id="vision-jump" type="button">Chili, jump onto that chair.</button></nav>
-<ul id="vision-objects"></ul></details>
-</section>
+<div id="aim" aria-hidden="true"></div><div id="move-pad" hidden aria-label="Preview movement joystick">MOVE<br>preview only</div><button id="capture" disabled>Tag chili</button><p id="chili-vision-status" role="status" aria-live="polite" style="margin:.2em 0;font-size:.8em;opacity:.75">Chili Vision: off</p><pre id="diagnostics" hidden></pre>
 <section id="launch"><div class="card"><h2>Chilis in your surroundings.</h2><p>Open your camera, drag your finger to aim, then tag a chili twice to catch it. View movement influences its attention independently of your aim.</p><p>Supported phones use spatial AR surface placement. Camera overlay is a demonstration without world tracking, depth, or occlusion.</p><button id="start" disabled>Loading character…</button><button id="overlay" disabled>Camera overlay</button><button id="preview" disabled>Desktop preview</button><p id="loading">Loading original animated chili</p></div></section>
 </main></body></html>
