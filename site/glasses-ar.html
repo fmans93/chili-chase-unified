@@ -1,1 +1,269 @@
-PLACEHOLDER
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="mrbd-web-app-capable" content="yes">
+<title>Chili Chase · Glasses AR</title>  <script type="module" crossorigin src="./assets/glassesAr-BX5pPEJ-.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/defense-pose-CPFj2ICZ.js">
+  <link rel="modulepreload" crossorigin href="./assets/ar-Cl9prLow.js">
+  <link rel="stylesheet" crossorigin href="./assets/ar-BephR8cL.css">
+  <link rel="stylesheet" crossorigin href="./assets/glassesAr-D6qmnoRx.css">
+</head>
+<body><main>
+  <header><h1>Chili Chase</h1><span>GLASSES AR</span></header>
+  <section id="play">
+    <div id="stage" aria-label="Chili in an orientation-driven glasses encounter"></div>
+    <div id="reticle" aria-hidden="true">+</div>
+    <div id="hud">
+      <p id="gesture">Gesture: none</p>
+      <p id="stats">Tags 0/2 · Ammo 12 · Health 100 · Score 0</p>
+      <p id="vision-status">Chili Vision: off</p>
+      <p id="message" role="status">Loading.</p>
+      <nav>
+        <button id="enter" disabled title="Waiting for the scene to load">Enter world</button>
+        <button id="recenter">Recenter forward</button>
+      </nav>
+      <p id="load-status">Starting.</p>
+      <small>No consent screen: Enter world starts the session directly; the browser's own camera/AR prompts appear as normal.
+      Head gestures: tilt down to walk · quick sideways flick to sidestep · double-nod to tag.
+      Neural Band is not exposed to web pages; orientation drives everything. No room mapping.</small>
+    </div>
+  </section>
+  <p><a href="./index.html">Phone game</a> · <a href="./glasses.html">Existing glasses page (unchanged)</a></p>
+<script>
+// Fallback game, in the spirit of the proven ar-chili-run page: the screen must
+// never be blank and Enter world must always DO something. If the ES-module
+// game never boots (module scripts unsupported, a load failure, or a script
+// error before its error hooks), this classic script runs a self-contained
+// 2D test scene with the real head-gesture controls: tilt down to walk,
+// quick sideways flick to sidestep, double-nod to tag. Every handler is
+// wrapped and any error is shown on screen via the message line.
+(function () {
+  var status = document.getElementById('load-status');
+  var message = document.getElementById('message');
+  var enter = document.getElementById('enter');
+  var gestureEl = document.getElementById('gesture');
+  var statsEl = document.getElementById('stats');
+  var stage = document.getElementById('stage');
+  var recenterBtn = document.getElementById('recenter');
+
+  function say(text) { if (status) status.textContent = text; }
+  function msg(text) { if (message) message.textContent = text; }
+  function showErr(where, e) {
+    var t = (e && e.message) ? e.message : String(e || 'unknown');
+    msg('Fallback error in ' + where + ': ' + t + '. Reload to retry.');
+  }
+
+  // ---- shared orientation state (same thresholds as the module game) ----
+  var baseA = null, baseB = null, yaw = 0, pitch = 0, haveOri = false;
+  var refYaw = null, refPitch = null, prevS = null, yawVel = 0;
+  var downSince = 0, walking = false, nodCount = 0, firstNodAt = 0, nodArmed = true;
+  var lastFire = -1e9, flickCooldownUntil = 0;
+  var TILT = 18, TILT_MS = 260, NOD = 12, FLICK_V = 150, FLICK_OFF = 14, NOD_GAP = 650, FLICK_CD = 700;
+  var onGesture = null; // callback(event) set by the scene
+
+  function wrap(fn) {
+    return function (a, b) {
+      try { return fn(a, b); } catch (e) { showErr('gesture update', e); }
+    };
+  }
+
+  window.addEventListener('deviceorientation', wrap(function (t) {
+    if (t && isFinite(t.alpha) && isFinite(t.beta)) {
+      if (baseA === null) { baseA = t.alpha; baseB = t.beta; }
+      yaw = ((t.alpha - baseA + 180) % 360 + 360) % 180 - 180;
+      pitch = t.beta - baseB;
+      haveOri = true;
+    }
+  }));
+
+  function recenter() {
+    baseA = null; baseB = null; refYaw = null; refPitch = null;
+    msg('Forward recentered. Head level = looking straight ahead.');
+  }
+  if (recenterBtn) recenterBtn.onclick = wrap(recenter);
+
+  function gestureUpdate(now) {
+    var r = { forward: false, sidestep: 0, fire: false, event: 'none' };
+    if (!haveOri || !isFinite(yaw) || !isFinite(pitch)) return r;
+    if (refYaw === null) { refYaw = yaw; refPitch = pitch; }
+    var ry = yaw - refYaw, rp = pitch - refPitch;
+    if (prevS) {
+      var dt = Math.max(0.001, (now - prevS.at) / 1000);
+      var v = (ry - prevS.yaw) / dt;
+      yawVel = yawVel * 0.5 + v * 0.5;
+    }
+    prevS = { yaw: ry, pitch: rp, at: now };
+    if (now >= flickCooldownUntil && Math.abs(yawVel) > FLICK_V && Math.abs(ry) > FLICK_OFF) {
+      r.sidestep = yawVel > 0 ? 1 : -1;
+      r.event = r.sidestep > 0 ? 'sidestep-right' : 'sidestep-left';
+      yawVel = 0; flickCooldownUntil = now + FLICK_CD;
+    }
+    if (rp > TILT) {
+      if (!downSince) downSince = now;
+      if (!walking && now - downSince >= TILT_MS) {
+        walking = true;
+        r.event = r.event === 'none' ? 'walk-start' : r.event;
+      }
+    } else {
+      downSince = 0;
+      if (walking) { walking = false; }
+    }
+    r.forward = walking;
+    if (nodArmed && rp > NOD && now - lastFire > 900) {
+      if (nodCount && now - firstNodAt <= NOD_GAP) {
+        nodCount = 0; nodArmed = false; lastFire = now;
+        r.fire = true; r.event = 'fire';
+      } else { nodCount = 1; firstNodAt = now; }
+    }
+    if (rp < 4) {
+      nodArmed = now - lastFire > 900;
+      if (nodCount && now - firstNodAt > NOD_GAP) nodCount = 0;
+    }
+    return r;
+  }
+
+  // ---- the fallback scene ----
+  var sceneOn = false, canvas = null, ctx = null, t0 = 0, lastT = 0;
+  var chiliDist = 6, chiliX = 0, score = 0, tags = 0, ammo = 12, walkPhase = 0;
+
+  function statsLine() {
+    if (statsEl) statsEl.textContent = 'Tags ' + tags + '/2 · Ammo ' + ammo + ' · Health 100 · Score ' + score;
+  }
+
+  function draw() {
+    if (!ctx) return;
+    var now = performance.now();
+    var dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000));
+    lastT = now;
+    var g;
+    try { g = gestureUpdate(now); } catch (e) { showErr('scene loop', e); return; }
+    if (g.event !== 'none' && gestureEl) gestureEl.textContent = 'Gesture: ' + g.event;
+    if (onGesture) { try { onGesture(g, dt); } catch (e) { showErr('scene logic', e); } }
+
+    var w = canvas.width, hgt = canvas.height;
+    ctx.fillStyle = '#11151b';
+    ctx.fillRect(0, 0, w, hgt);
+    // Ground grid, scrolling while walking.
+    var scroll = walkPhase * 40;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var i = 0; i < 12; i++) {
+      var y = hgt * 0.55 + i * i * 2.2;
+      ctx.moveTo(0, y); ctx.lineTo(w, y);
+    }
+    for (var x = -6; x <= 6; x++) {
+      var gx = w / 2 + x * 40 - (chiliX * 40) - (scroll % 40);
+      ctx.moveTo(gx, hgt * 0.55);
+      ctx.lineTo(w / 2 + x * 160 - chiliX * 160, hgt);
+    }
+    ctx.stroke();
+    // Chili placeholder: nearer = bigger; off to the side when yawed away.
+    var size = Math.max(6, 260 / Math.max(0.6, chiliDist));
+    var bob = Math.sin(now / 500) * size * 0.12;
+    var cx = w / 2 - chiliX * (w * 0.35);
+    var cy = hgt * 0.45 + bob - (6 - chiliDist) * 4;
+    ctx.fillStyle = '#d92222';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, size * 0.5, size, Math.sin(now / 1000) * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3fae4a';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - size * 1.05, size * 0.22, size * 0.36, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    // Distance hint.
+    ctx.fillStyle = '#7af5ff';
+    ctx.font = '12px Arial';
+    ctx.fillText('chili ' + chiliDist.toFixed(1) + 'm ahead' + (walking ? ' · walking' : ''), 10, hgt * 0.55 - 8);
+    requestAnimationFrame(draw);
+  }
+
+  function sceneLogic(g, dt) {
+    if (g.forward) {
+      walkPhase += dt * 2.2;
+      chiliDist -= dt * 2.2;
+      if (chiliDist <= 0.6) { chiliDist = 0.6; }
+    }
+    if (g.sidestep) {
+      chiliX -= g.sidestep * 0.5;
+      if (chiliX > 2) chiliX = 2;
+      if (chiliX < -2) chiliX = -2;
+    }
+    if (g.fire) {
+      if (ammo > 0 && Math.abs(chiliX) < 0.6 && chiliDist < 4) {
+        ammo--; tags++; score += 50;
+        msg('Tagged the chili! +50. It reappears further away.');
+        chiliDist = 6 + tags * 1.5; chiliX = 0;
+      } else if (ammo > 0) {
+        ammo--;
+        msg('Missed. Line the chili up in the middle (flick to sidestep), get closer (tilt down to walk), then double-nod.');
+      } else {
+        msg('Out of ammo in the test scene - reload the page to restart it.');
+      }
+    }
+    statsLine();
+  }
+
+  function buildCanvas() {
+    if (!stage || canvas) return;
+    canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    canvas.style.cssText = 'position:fixed;inset:0;z-index:1;';
+    stage.appendChild(canvas);
+    ctx = canvas.getContext('2d');
+  }
+
+  function startFallback() {
+    buildCanvas();
+    if (!ctx) { msg('Fallback error: could not create the test-scene canvas. Reload to retry.'); return; }
+    if (!sceneOn) {
+      sceneOn = true;
+      onGesture = sceneLogic;
+      t0 = lastT = performance.now();
+      requestAnimationFrame(draw);
+      msg('Fallback world ACTIVE. Head-gesture controls live: tilt down to walk · quick sideways flick to sidestep · double-nod to tag the chili when it is close and centered.');
+      if (gestureEl) gestureEl.textContent = 'Gesture: listening';
+    } else {
+      msg('Fallback world already active. Tilt down to walk · flick to sidestep · double-nod to tag.');
+    }
+    if (!haveOri) {
+      msg('Fallback world ACTIVE, but no head-orientation data yet - move your head slightly; if gestures still do nothing, this browser blocks deviceorientation.');
+    }
+  }
+
+  // Enter world must never be a dead button: start (or confirm) the fallback
+  // world, and surface any error on screen instead of failing silently.
+  if (enter) {
+    enter.onclick = function () {
+      try { startFallback(); } catch (e) { showErr('Enter world', e); }
+    };
+  }
+
+  // ---- takeover timer ----
+  var checked = 0;
+  var timer = setInterval(function () {
+    checked++;
+    if (window.__glassesARLoading === false && !window.__glassesARFailed) {
+      clearInterval(timer); return; // module game owns the page now
+    }
+    if (checked < 40) return; // give the module game ~20 seconds
+    clearInterval(timer);
+    try {
+      // Take over whether the module never started OR reported its own failure.
+      if (enter) { enter.disabled = false; enter.title = ''; }
+      buildCanvas(); // idle scene renders immediately
+      if (ctx) {
+        lastT = performance.now();
+        requestAnimationFrame(draw); // ambient scene; controls engage on Enter world
+      }
+      say('Game module did not start. Fallback scene ready - press Enter world.');
+      msg('Fallback mode: the full game could not start in this browser. Press Enter world to start the test scene with head-gesture controls (tilt down to walk · flick to sidestep · double-nod to tag).');
+    } catch (e) {
+      showErr('fallback setup', e);
+      if (enter) { enter.disabled = false; }
+    }
+  }, 500);
+})();
+</script>
+</body></html>
