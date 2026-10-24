@@ -232,6 +232,24 @@
     }
   }
 
+  // ---- v6: version stamp + guaranteed synchronous Enter-world reaction ----
+  var v6Stamp = document.createElement('div');
+  v6Stamp.textContent = 'v6';
+  v6Stamp.style.cssText = 'position:fixed;top:4px;right:6px;z-index:99;color:#7af5ff;font:12px monospace;background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px;';
+  document.body.appendChild(v6Stamp);
+
+  function v6Enter(ev) {
+    try {
+      if (ev) { try { ev.stopImmediatePropagation(); } catch (e2) {} }
+      var card = document.querySelector('#hud small');
+      if (card) card.style.display = 'none';
+      msg('Fallback world ACTIVE');
+      if (status) status.textContent = 'v6 fallback world started.';
+      startFallback();
+    } catch (e) { showErr('Enter world v6', e); }
+  }
+  if (enter) enter.addEventListener('click', v6Enter, true);
+
   // Enter world must never be a dead button: start (or confirm) the fallback
   // world, and surface any error on screen instead of failing silently.
   if (enter) {
