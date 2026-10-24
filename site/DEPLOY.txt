@@ -1,2 +1,2 @@
 Chili Chase Pages deploy trigger.
-Glasses AR rendering fix deployed 2026-10-23: opaque scene background per ar-chili-run recipe, fallback scene, load progress.
+Glasses AR fallback fix deployed 2026-10-24: Enter world in fallback mode now actually starts the head-gesture test scene (tilt down to walk, flick to sidestep, double-nod to tag); all fallback handlers wrapped with on-screen error reporting.
